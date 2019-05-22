@@ -1,0 +1,36 @@
+os: linux
+
+language: cpp
+
+sudo: required
+
+branches:
+  only:
+  - "/^test.*$/"
+  - "/^v[0-9].*$/"
+
+services:
+- docker
+
+addons:
+  apt:
+    update: true
+
+env:
+  global:
+  - DOCKERHUB='chalmersfsd'
+  - IMAGE=`echo ${TRAVIS_REPO_SLUG#*/}`
+
+install:
+- docker build -f Dockerfile.amd64 -t ${IMAGE} .
+
+script: skip
+
+after_success:
+- echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+- if [[ "${TRAVIS_BRANCH}" == *test* ]]; then docker tag ${IMAGE} ${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}${TRAVIS_BUILD_NUMBER}; docker push ${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}${TRAVIS_BUILD_NUMBER}; echo "${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}${TRAVIS_BUILD_NUMBER}"; else docker tag ${IMAGE} ${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}; docker push ${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}; echo "${DOCKERHUB}/${IMAGE}:${TRAVIS_BRANCH}"; fi
+
+notifications:
+  email:
+    on_success: never
+    on_failure: never

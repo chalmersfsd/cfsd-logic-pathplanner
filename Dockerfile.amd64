@@ -15,6 +15,8 @@
 
 FROM archlinux/base as builder
 RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3 eigen
+RUN echo 'Server = http://ftp.acc.umu.se/mirror/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist 
+
 
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -26,6 +28,7 @@ RUN mkdir build && \
 
 FROM archlinux/base
 RUN pacman -Sy --noconfirm opencv gtk3
+RUN echo 'Server = http://ftp.acc.umu.se/mirror/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist 
 
 WORKDIR /usr/bin
 COPY --from=builder /tmp/bin/cfsd-logic-pathplanner .

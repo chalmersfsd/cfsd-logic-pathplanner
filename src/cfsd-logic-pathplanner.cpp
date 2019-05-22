@@ -52,16 +52,21 @@ int32_t main(int32_t argc, char **argv) {
     };
 
     std::mutex uncompleteFrameMutex;
-    std::vector<ConeObject> uncompleteFrame;
+    std::map<uint32_t, Cone> uncompleteFrame;
+    uint32_t currentUncompleteFrameId;
 
     std::mutex completeFrameMutex;
-    std::vector<ConeObject> completeFrame;
+    std::map<uint32_t, Cone> completeFrame;
+    uint32_t currentCompleteFrameId;
+    cluon::data::TimeStamp frameStart;
+    cluon::data::TimeStamp frameEnd;
 
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
 
-    auto onObjectFrameStart{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
-        cluon::data::Envelope &&envelope)
+    auto onObjectFrameStart{[&uncompleteFrameMutex, &uncompleteFrame,
+      &currentUncompleteFrameId, &frameStart, &verbose](
+          cluon::data::Envelope &&envelope)
     {
       // TODO: for now assume senderStamp 0 for perception (add SLAM later)
       if (envelope.senderStamp() == 0) {
@@ -70,6 +75,13 @@ int32_t main(int32_t argc, char **argv) {
               std::move(envelope));
 
         uint32_t objectFrameId = msg.objectFrameId();
+        {
+          std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+          uncompleteFrame = std::map<uint32_t, Cone>();
+          currentUncompleteFrameId = objectFrameId;
+          frameStart = envelope.sent();
+        }
+
         if (verbose) {
           std::cout << "Got frame START with id=" << objectFrameId
             << std::endl;
@@ -77,7 +89,9 @@ int32_t main(int32_t argc, char **argv) {
       }
     }};
 
-    auto onObjectFrameEnd{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
+    auto onObjectFrameEnd{[&uncompleteFrameMutex, &uncompleteFrame, 
+      &currentUncompleteFrameId, &completeFrameMutex, &completeFrame,
+      &currentCompleteFrameId, &frameEnd, &verbose](
         cluon::data::Envelope &&envelope)
     {
       // TODO: for now assume senderStamp 0 for perception (add SLAM later)
@@ -87,6 +101,14 @@ int32_t main(int32_t argc, char **argv) {
               std::move(envelope));
 
         uint32_t objectFrameId = msg.objectFrameId();
+        {
+          std::lock_guard<std::mutex> lock1(completeFrameMutex);
+          std::lock_guard<std::mutex> lock2(uncompleteFrameMutex);
+          completeFrame = uncompleteFrame;
+          currentCompleteFrameId = currentUncompleteFrameId;
+          frameEnd = envelope.sent();
+        }
+
         if (verbose) {
           std::cout << "Got frame END with id=" << objectFrameId 
             << std::endl;
@@ -97,85 +119,102 @@ int32_t main(int32_t argc, char **argv) {
     auto onObject{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
         cluon::data::Envelope &&envelope)
     {
-      // TODO: for now assume senderStamp 0 for perception (add SLAM later)
-      if (envelope.senderStamp() == 0) {
-        auto msg = 
-          cluon::extractMessage<opendlv::logic::perception::Object>(
-              std::move(envelope));
+      auto msg = 
+        cluon::extractMessage<opendlv::logic::perception::Object>(
+            std::move(envelope));
 
-        uint32_t objectId = msg.objectId();
-        if (verbose) {
-          std::cout << "Got NEW OBJECT with id=" << objectId << std::endl;
-        }
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        uncompleteFrame[objectId] = Cone();
+      }
+      if (verbose) {
+        std::cout << "Got NEW OBJECT with id=" << objectId << std::endl;
       }
     }};
 
     auto onObjectType{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
         cluon::data::Envelope &&envelope)
     {
-      // TODO: for now assume senderStamp 0 for perception (add SLAM later)
-      if (envelope.senderStamp() == 0) {
-        auto msg = 
-          cluon::extractMessage<opendlv::logic::perception::ObjectType>(
-              std::move(envelope));
+      auto msg = 
+        cluon::extractMessage<opendlv::logic::perception::ObjectType>(
+            std::move(envelope));
 
-        uint32_t objectId = msg.objectId();
-        uint32_t type = msg.type();
-        if (verbose) {
-          std::cout << "Got OBJECT TYPE for object with id=" << objectId 
-            << " and type=" << type << std::endl;
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        if (uncompleteFrame.count(objectId)) {
+          uncompleteFrame[objectId].type = msg.type();
         }
+      }
+      if (verbose) {
+        std::cout << "Got OBJECT TYPE for object with id=" << objectId 
+          << " and type=" << msg.type() << std::endl;
       }
     }};
 
     auto onObjectPosition{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
         cluon::data::Envelope &&envelope)
     {
-      // TODO: for now assume senderStamp 0 for perception (add SLAM later)
-      if (envelope.senderStamp() == 0) {
-        auto msg = 
-          cluon::extractMessage<opendlv::logic::perception::ObjectPosition>(
-              std::move(envelope));
+      auto msg = 
+        cluon::extractMessage<opendlv::logic::perception::ObjectPosition>(
+            std::move(envelope));
 
-        uint32_t objectId = msg.objectId();
-        float x = msg.x();
-        float y = msg.y();
-        if (verbose) {
-          std::cout << "Got OBJECT POSITION for object with id=" << objectId 
-            << " and x=" << x << " y=" << y << std::endl;
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        if (uncompleteFrame.count(objectId)) {
+          uncompleteFrame[objectId].x = msg.x();
+          uncompleteFrame[objectId].y = msg.y();
         }
+      }
+      if (verbose) {
+        std::cout << "Got OBJECT POSITION for object with id=" << objectId 
+          << " and x=" << msg.x() << " y=" << msg.y() << std::endl;
       }
     }};
 
     auto onEquilibrioception{[&uncompleteFrameMutex, &uncompleteFrame, &verbose](
         cluon::data::Envelope &&envelope)
     {
-      // TODO: for now assume senderStamp 0 for perception (add SLAM later)
-      if (envelope.senderStamp() == 0) {
-        auto msg = 
-          cluon::extractMessage<opendlv::logic::sensation::Equilibrioception>(
-              std::move(envelope));
+      auto msg = 
+        cluon::extractMessage<opendlv::logic::sensation::Equilibrioception>(
+            std::move(envelope));
 
-        float vx = msg.vx();
-        float yawRate = msg.yawRate();
-        if (verbose) {
-          std::cout << "Got EQUILIBRIOCEPTION vx=" << vx << " and yawRate=" 
-            << yawRate << std::endl;
-        }
+      float vx = msg.vx();
+      float yawRate = msg.yawRate();
+      if (verbose) {
+        std::cout << "Got EQUILIBRIOCEPTION vx=" << vx << " and yawRate=" 
+          << yawRate << std::endl;
       }
     }};
 
-    auto atFrequency{[&od4, &completeFrameMutex, &localPathSenderId, 
-      &verbose]() -> bool
+    auto atFrequency{[&od4, &completeFrameMutex, &completeFrame, 
+      &localPathSenderId, &frameStart, &frameEnd, &verbose]() -> bool
       {
-        std::lock_guard<std::mutex> lock(completeFrameMutex);
-
         std::vector<std::pair<float, float>> path;
-        path.push_back(std::pair<float, float>(1.23f, 2.34f));
-        path.push_back(std::pair<float, float>(3.45f, 6.78f));
 
+        {
+          std::lock_guard<std::mutex> lock(completeFrameMutex);
 
+          if (verbose) {
+            uint64_t frameDuration = cluon::time::toMicroseconds(frameEnd)
+              - cluon::time::toMicroseconds(frameStart);
+            std::cout << "Using frame to find path, frame duration="
+              << frameDuration << ", number of cones=" << completeFrame.size()
+              << std::endl;
+          }
 
+          for (auto c : completeFrame) {
+            if (verbose) {
+              std::cout << "   x=" << c.second.x << ", y=" << c.second.y 
+                << ", type=" << c.second.type << std::endl;
+            }
+          }
+
+          path.push_back(std::pair<float, float>(1.23f, 2.34f));
+          path.push_back(std::pair<float, float>(3.45f, 6.78f));
+        }
 
         uint32_t length = path.size();
         std::string data;

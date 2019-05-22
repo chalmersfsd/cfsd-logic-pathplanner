@@ -73,6 +73,9 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 set(LIBRARIES Threads::Threads)
 
+find_package(Eigen3 REQUIRED NO_MODULE)
+include_directories(${Eigen3_INCLUDE_DIRS})
+
 if(UNIX)
     if(NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
         find_package(LibRT REQUIRED)
@@ -83,7 +86,7 @@ endif()
 
 find_package(OpenCV REQUIRED core highgui imgproc)
 include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS})
-set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
+set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS} ${Eigen3_LIBS})
 
 ################################################################################
 # Create executable.

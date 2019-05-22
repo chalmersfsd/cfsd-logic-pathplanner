@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 FROM archlinux/base as builder
-RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3
+RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3 eigen
 
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -30,4 +30,3 @@ RUN pacman -Sy --noconfirm opencv gtk3
 WORKDIR /usr/bin
 COPY --from=builder /tmp/bin/cfsd-logic-pathplanner .
 ENTRYPOINT ["/usr/bin/cfsd-logic-pathplanner"]
-

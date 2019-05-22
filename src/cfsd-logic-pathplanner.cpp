@@ -18,6 +18,8 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
+#include <Eigen/Core>
+
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -168,15 +170,32 @@ int32_t main(int32_t argc, char **argv) {
       {
         std::lock_guard<std::mutex> lock(completeFrameMutex);
 
-        float path[] = {1.23f, 2.34f, 3.45f, 4.56f};
+        std::vector<std::pair<float, float>> path;
+        path.push_back(std::pair<float, float>(1.23f, 2.34f));
+        path.push_back(std::pair<float, float>(3.45f, 6.78f));
 
-        std::string data(reinterpret_cast<char const *>(std::begin(path)),
-            reinterpret_cast<char const *>(std::end(path)));
+
+
+
+        uint32_t length = path.size();
+        std::string data;
+        for (auto c : path) {
+          float x = c.first;
+          float y = c.second;
+          float z = 0.0f;
+
+          char r[12];
+          memcpy(r, &x, 4); 
+          memcpy(r + 4, &y, 4); 
+          memcpy(r + 8, &z, 4); 
+
+          data += std::string(r, 12);
+        }
 
         cluon::data::TimeStamp ts = cluon::time::now();
 
         opendlv::logic::action::LocalPath localPath;
-        localPath.length(2);
+        localPath.length(length);
         localPath.data(data);
         od4.send(localPath, ts, localPathSenderId);
 

@@ -28,6 +28,7 @@
 #include <mutex>
 #include <iterator>
 
+#include "collector.hpp"
 int32_t main(int32_t argc, char **argv) {
   int32_t retCode{1};
   auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
@@ -42,17 +43,17 @@ int32_t main(int32_t argc, char **argv) {
 
     uint32_t localPathSenderId = 2601;
 
-    struct Cone {
+    struct ConeObject {
       float x;
       float y;
       uint32_t type;
     };
 
     std::mutex uncompleteFrameMutex;
-    std::vector<Cone> uncompleteFrame;
+    std::vector<ConeObject> uncompleteFrame;
 
     std::mutex completeFrameMutex;
-    std::vector<Cone> completeFrame;
+    std::vector<ConeObject> completeFrame;
 
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};

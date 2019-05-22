@@ -356,3 +356,17 @@ message opendlv.logic.cognition.GroundMotionLimit [id = 1191] {
   float pitchRate [id = 5];
   float yawRate [id = 6];
 }
+
+/* CFSD19 Nam cone info message*/
+message opendlv.logic.perception.ConeInfo [id  = 1193] {
+  double x;
+  double y;
+  double z;
+  uint32 objectId [id = 1];
+  float azimuthAngle [id = 2];
+  float zenithAngle [id = 3];
+  float distance [id = 4];
+  uint8 color [id = 5]; //0-nothing, 1-blue, 2-yellow, 4-orange
+  uint32 frame [id = 6];
+  uint32 conesPerFrame [id = 7];
+}

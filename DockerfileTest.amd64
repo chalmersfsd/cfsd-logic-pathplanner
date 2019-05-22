@@ -13,20 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM archlinux/base as builder
-RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3 eigen
-
-ADD . /opt/sources
-WORKDIR /opt/sources
-RUN mkdir build && \
-    cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp .. && \
-    make && make install
-
 
 FROM archlinux/base
-RUN pacman -Sy --noconfirm opencv gtk3 eigen
+RUN pacman -Sy --noconfirm gtk3 eigen
 
 WORKDIR /usr/bin
-COPY --from=builder /tmp/bin/cfsd-logic-pathplanner .
-ENTRYPOINT ["/usr/bin/cfsd-logic-pathplanner"]

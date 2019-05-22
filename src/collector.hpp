@@ -40,7 +40,7 @@ struct Point2D {
 
 class Collector{
   public:
-    Collector(bool);
+    Collector();
     ~Collector() = default;
 
     // CFSD19 modification

@@ -45,7 +45,7 @@ int32_t main(int32_t argc, char **argv) {
 
     uint32_t localPathSenderId = 2601;
 
-    struct ConeObject {
+    struct ConeObject{
       float x;
       float y;
       uint32_t type;

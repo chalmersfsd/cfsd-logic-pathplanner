@@ -54,7 +54,7 @@ Eigen::ArrayXXf getDisplacementTranslation(std::vector<Point2D> pastCones, std::
   return vec;
 }
 /*-------------------------------------------------------*/
-Collector::Collector(bool isSkidpad) :
+Collector::Collector() :
     m_pastBlue{},
     m_pastYellow{},
     m_Cones{},

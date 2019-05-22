@@ -18,6 +18,8 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
+#include <Eigen/Core>
+
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 

@@ -42,7 +42,7 @@ struct Point2D {
 
 class Collector{
   public:
-    Collector(std::map<std::string, std::string>);
+    Collector(cluon::OD4Session &od4, std::map<std::string, std::string>);
     ~Collector() = default;
 
     // CFSD19 modification
@@ -61,19 +61,25 @@ class Collector{
     void ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, std::vector<Cone> orange, std::vector<Point2D> PredictedBlues, std::vector<Point2D> PredictedYellows);
     
   public:
+    cluon::OD4Session &m_od4;
+    //Containers for path planning
     std::vector<Point2D> m_pastBlue;
     std::vector<Point2D> m_pastYellow;
     std::queue<Cone*> m_Cones;
     std::queue<Cone> m_currentConeFrame;
     std::vector<Point2D> middlePath;
     
+    //Counters
     uint32_t m_collectorFrameCounter;
     uint32_t m_currentFrameCounter;
+    
+    //Flags and status
     Status m_status;
     bool m_isSkidpad;
     bool m_verbose;
     bool m_debug;
     
+    //Variables for creating cone frames
     std::mutex uncompleteFrameMutex;
     std::map<uint32_t, Cone> uncompleteFrame;
     uint32_t currentUncompleteFrameId;
@@ -84,13 +90,18 @@ class Collector{
     
     cluon::data::TimeStamp frameStart;
     cluon::data::TimeStamp frameEnd;
-    
+    Point2D currentAim;
+    //Function for creating cone frames
     void getObjectFrameStart(cluon::data::Envelope envelope);
     void getObjectFrameEnd(cluon::data::Envelope envelope);
     void getObject(cluon::data::Envelope envelope);
     void getObjectType(cluon::data::Envelope envelope);
     void getObjectPosition(cluon::data::Envelope envelope);
     void getEquilibrioception(cluon::data::Envelope envelope);
+    
+    //Visualiztion of aimpoints fro debugging
+    void getAimpoint(cluon::data::Envelope envelope);
+    
 };
 
 #endif

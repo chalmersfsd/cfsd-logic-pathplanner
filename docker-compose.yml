@@ -6,4 +6,9 @@ services:    # Must be present exactly once at the beginning of the docker-compo
         ipc: host
         environment:
           - DISPLAY=$DISPLAY
-        command: "/usr/bin/cfsd19-cognition-detectconelane --cid=219  --verbose --freq=10"
+        command: "cfsd-logic-pathplanner --cid=253 --debug --freq=10"
+        
+    cfsd19-logic-aimpoint:
+      image: lowitz/aimpoint:v0.0.2
+      network_mode: "host"
+      command: "cfsd-logic-aimpoint --cid=253 --previewTime=0.5 --verbose"

@@ -54,7 +54,8 @@ Eigen::ArrayXXf getDisplacementTranslation(std::vector<Point2D> pastCones, std::
   return vec;
 }
 /*-------------------------------------------------------*/
-Collector::Collector(std::map<std::string, std::string> commandlineArguments) :
+Collector::Collector(cluon::OD4Session &od4, std::map<std::string, std::string> commandlineArguments) :
+    m_od4(od4),
     m_pastBlue{},
     m_pastYellow{},
     m_Cones{},
@@ -77,7 +78,9 @@ Collector::Collector(std::map<std::string, std::string> commandlineArguments) :
     currentCompleteFrameId(),
 
     frameStart(),
-    frameEnd()
+    frameEnd(),
+    
+    currentAim()
     
 {
   m_verbose = static_cast<bool>(commandlineArguments.count("verbose") != 0);
@@ -595,6 +598,13 @@ void Collector::ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, std
     }
   }
   
+  //Show aimpoint from Aimpoint module
+  //current aimpoint
+  int xt = int(currentAim.x * float(resultResize) + outWidth/2);
+  int yt = int(currentAim.y * float(resultResize));
+  cv::Scalar aimpointColor(0,0,255);
+  cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 4, aimpointColor, -1);
+  
   // Show result image
   cv::imshow("detectconelane-blue-yellow", outImg);
   cv::imshow("detectconelane-orange", outImgOrange);
@@ -704,5 +714,20 @@ void Collector::getEquilibrioception(cluon::data::Envelope envelope){
       if (m_verbose) {
         std::cout << "Got EQUILIBRIOCEPTION vx=" << vx << " and yawRate=" 
           << yawRate << std::endl;
+      }
+}
+
+void Collector::getAimpoint(cluon::data::Envelope envelope){
+  opendlv::logic::action::AimPoint msg = 
+        cluon::extractMessage<opendlv::logic::action::AimPoint>(
+            std::move(envelope));
+
+      float angle = msg.azimuthAngle();
+      float distance = msg.distance();
+      currentAim.x = distance*cos(angle);
+      currentAim.y = distance*sin(angle);
+      if (m_verbose) {
+        std::cout << "Got AIMPOINT for object with id=" << 0 
+          << " and x=" << currentAim.x << " y=" << currentAim.y << std::endl;
       }
 }

@@ -41,11 +41,10 @@ int32_t main(int32_t argc, char **argv) {
     bool const verbose{commandlineArguments.count("verbose") != 0};
     uint32_t localPathSenderId = 2601;
 
-    Collector collector(commandlineArguments);
-
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-
+    Collector collector(od4, commandlineArguments);
+    
     auto onObjectFrameStart{[&planner = collector](
           cluon::data::Envelope &&envelope)
     {
@@ -86,6 +85,12 @@ int32_t main(int32_t argc, char **argv) {
         cluon::data::Envelope &&envelope)
     {
       planner.getEquilibrioception(envelope);
+    }};
+    
+    auto onAimpoint{[&planner = collector](
+        cluon::data::Envelope &&envelope)
+    {
+      planner.getAimpoint(envelope);
     }};
     
     auto atFrequency{[&od4, &verbose, &collector, &localPathSenderId]() -> bool
@@ -144,6 +149,9 @@ int32_t main(int32_t argc, char **argv) {
         onObjectPosition);
     od4.dataTrigger(opendlv::logic::sensation::Equilibrioception::ID(),
         onEquilibrioception);
+        
+    od4.dataTrigger(opendlv::logic::action::AimPoint::ID(),
+        onAimpoint);
     od4.timeTrigger(std::stoi(commandlineArguments["freq"]), atFrequency);
     
     retCode = 0;

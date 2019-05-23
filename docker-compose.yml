@@ -6,13 +6,4 @@ services:    # Must be present exactly once at the beginning of the docker-compo
         ipc: host
         environment:
           - DISPLAY=$DISPLAY
-        command: "/usr/bin/cfsd19-cognition-detectconelane --cid=219--verbose=0 --id=211 --detectConeId=118 --slamId=120 --simDetectConeId=231 --attentionId=116 --yawRateId=112 --speedId1=1504 --speedId2=1505 --gpsId=114 \
-        --gatheringTimeMs=50 --separationTimeMs=10 \
-        --alwaysSlam=0 --guessDistance=3.0 --minGuessSeparation=1.5 --latePerpGuessing=0 --useCurveDetection=0 --maxConeAngle=1.570796325 --behindMemoryDistance=3.0 \
-        --maxConeWidthSeparation=3.0 --widthSeparationMargin=1.0 \
-        --maxConeLengthSeparation=5.0 --lengthSeparationMargin=1.0 \
-        --nLapsToGo=1 --lapCounterLockTime=20 --stopSignalDelay=0.0 \
-        --useOrangeLapCounter=0 --useNewConeLapCounter=1 --nMinOrangeFrames=2 --nMinDisappearanceFrames=2 \
-        --useGpsLapCounter=0 --trackGpsTolerance=2.0 --useRawGPS=0 --refLatitude=57.710482 --refLongitude=11.950813 \
-        --useAccelerationMode=0 --usePathMemory=0 --accGpsFinishDistance=75.0 \
-        --useSkidpadMode=1 --debug"
+        command: "/usr/bin/cfsd19-cognition-detectconelane --cid=219  --verbose --freq=10"

@@ -25,6 +25,8 @@
 #include <vector>
 #include <chrono>
 #include <Eigen/Core>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "opendlv-standard-message-set.hpp"
 #include "cluon-complete.hpp"
 // CFSD19 modification
@@ -40,7 +42,7 @@ struct Point2D {
 
 class Collector{
   public:
-    Collector();
+    Collector(std::map<std::string, std::string>);
     ~Collector() = default;
 
     // CFSD19 modification
@@ -56,15 +58,39 @@ class Collector{
     Eigen::ArrayXXf MakeSidePoints(std::vector<Cone> cones, uint32_t numberOfPoints);
 
     // CFSD19 modification
+    void ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, std::vector<Cone> orange, std::vector<Point2D> PredictedBlues, std::vector<Point2D> PredictedYellows);
+    
   public:
     std::vector<Point2D> m_pastBlue;
     std::vector<Point2D> m_pastYellow;
     std::queue<Cone*> m_Cones;
-    std::queue<Cone*> m_currentConeFrame;
+    std::queue<Cone> m_currentConeFrame;
+    std::vector<Point2D> middlePath;
+    
     uint32_t m_collectorFrameCounter;
     uint32_t m_currentFrameCounter;
     Status m_status;
     bool m_isSkidpad;
+    bool m_verbose;
+    bool m_debug;
+    
+    std::mutex uncompleteFrameMutex;
+    std::map<uint32_t, Cone> uncompleteFrame;
+    uint32_t currentUncompleteFrameId;
+
+    std::mutex completeFrameMutex;
+    std::map<uint32_t, Cone> completeFrame;
+    uint32_t currentCompleteFrameId;
+    
+    cluon::data::TimeStamp frameStart;
+    cluon::data::TimeStamp frameEnd;
+    
+    void getObjectFrameStart(cluon::data::Envelope envelope);
+    void getObjectFrameEnd(cluon::data::Envelope envelope);
+    void getObject(cluon::data::Envelope envelope);
+    void getObjectType(cluon::data::Envelope envelope);
+    void getObjectPosition(cluon::data::Envelope envelope);
+    void getEquilibrioception(cluon::data::Envelope envelope);
 };
 
 #endif

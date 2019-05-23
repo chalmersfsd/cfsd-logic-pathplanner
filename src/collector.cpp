@@ -54,47 +54,46 @@ Eigen::ArrayXXf getDisplacementTranslation(std::vector<Point2D> pastCones, std::
   return vec;
 }
 /*-------------------------------------------------------*/
-Collector::Collector() :
+Collector::Collector(std::map<std::string, std::string> commandlineArguments) :
     m_pastBlue{},
     m_pastYellow{},
     m_Cones{},
     //CFSD19 Modification
     m_currentConeFrame{},
+    middlePath{},
     m_collectorFrameCounter(0),
     m_currentFrameCounter(0),
-    m_status(isMakingFrame),
-    m_isSkidpad(isSkidpad)
+    m_status(),
+    m_isSkidpad(),
+    m_verbose(),
+    m_debug(),
+    
+    uncompleteFrameMutex(),
+    uncompleteFrame{},
+    currentUncompleteFrameId(),
+
+    completeFrameMutex(),
+    completeFrame{},
+    currentCompleteFrameId(),
+
+    frameStart(),
+    frameEnd()
     
 {
+  m_verbose = static_cast<bool>(commandlineArguments.count("verbose") != 0);
+  m_debug = static_cast<bool>(commandlineArguments.count("debug") != 0);
 }
 
 void Collector::CollectConesCFSD19(){
 }
 
 void Collector::GetCompleteFrameCFSD19(){
-  // Make new frame by adding cones with the same frame counter, stop when seeing a cone with different frame counter
-  if(m_status == isMakingFrame){
-    if(m_Cones.size() > 0){
-      // If next cone has the same frame counter as currently built frame...
-      if(m_Cones.front()->m_frame == m_currentFrameCounter){
-        // ... then conpy its properties to a new cone pointer and push it in m_currentConeFrame
-        Cone* newCone = new Cone(m_Cones.front()->m_objectId, m_Cones.front()->m_x, m_Cones.front()->m_y, m_Cones.front()->m_z, m_Cones.front()->m_azimuthAngle, m_Cones.front()->m_zenithAngle, m_Cones.front()->m_distance, m_Cones.front()->m_color, m_Cones.front()->m_frame, m_Cones.front()->m_conesPerFrame);
-        m_currentConeFrame.push(newCone);
-        // Done copying, delete and pop current cone in m_Cones
-        delete m_Cones.front();
-        m_Cones.pop();
-      }
-      // Otherwise, a new frame is complete
-      else
-      {
-        m_currentFrameCounter = m_Cones.front()->m_frame;
-        //if(m_status == isDoneProcessing)
-        m_status = isProcessingFrame;
-      }
-    }
-  }
-  else // is processing frame
+  //Copy cones to m_currentConeFrame for processing
+  std::lock_guard<std::mutex> lock(completeFrameMutex);
+  if(completeFrame.size())
   {
+    for(auto elem : completeFrame)
+	    m_currentConeFrame.push(elem.second);
   }
 }
 
@@ -128,16 +127,16 @@ std::vector<Cone> Collector::SortConesCFSD19(std::vector<Cone> cones){
     cones.erase (cones.begin()+closestIndex);   
   }
   //When there is only one cone left, push it to the sorted list
-  std::cout << "cones.size() = " << cones.size() << std::endl;
   SortedCones.push_back(cones[0]);
   return SortedCones;
 }
 
 void Collector::ProcessFrameCFSD19(){
-  // Proces sorted cones in current frame
-  if(m_status == isProcessingFrame){
+    if(middlePath.size())
+      middlePath.clear();
+               
     if(m_currentConeFrame.size() > 0){
-      bool debug = true;
+
       //std::cout << "Current frame " << m_currentConeFrame.front()->m_frame << " has: " << m_currentConeFrame.size() << " cones\n";
 			
       //Copy cones of different colors to their own containers for processing
@@ -145,26 +144,25 @@ void Collector::ProcessFrameCFSD19(){
       std::vector<Cone> tempBlueCones;
       std::vector<Cone> tempOrangeCones;     
       while(m_currentConeFrame.size() >0){       
-        if(m_currentConeFrame.front()->m_color == 1){ //blue
-        Cone cone = *m_currentConeFrame.front();
+        if(m_currentConeFrame.front().m_color == 1){ //blue
+        Cone cone = m_currentConeFrame.front();
         tempBlueCones.push_back(cone);
       }
       else
-      if(m_currentConeFrame.front()->m_color == 2){ //yellow
-        Cone cone = *m_currentConeFrame.front();
+      if(m_currentConeFrame.front().m_color == 2){ //yellow
+        Cone cone = m_currentConeFrame.front();
         tempYellowCones.push_back(cone);
       }
       else
-      if(m_currentConeFrame.front()->m_color == 4){ //orange
-        Cone cone = *m_currentConeFrame.front();
+      if(m_currentConeFrame.front().m_color == 4){ //orange
+        Cone cone = m_currentConeFrame.front();
         tempOrangeCones.push_back(cone);
       }
       //Done copying, delete pointers to free memory
-      delete m_currentConeFrame.front();
       m_currentConeFrame.pop();
       }
 			
-      if(debug){
+      if(m_debug){
         std::cout << "frame: " << m_currentFrameCounter << " , blues: " << tempBlueCones.size() << " , yellow: " << tempYellowCones.size() << std::endl;
       }
 			 
@@ -256,14 +254,13 @@ void Collector::ProcessFrameCFSD19(){
       }
 
       //Create middle path
-      std::vector<Point2D> middlePoints;
       if(BlueSidePoints.rows() > 1 || YellowSidePoints.rows() > 1)
       {
         for(uint32_t i=0;i<BlueSidePoints.rows();i++){
           Point2D middlePoint;
           middlePoint.x = 0.5*(BlueSidePoints(i,0)+YellowSidePoints(i,0));
           middlePoint.y = 0.5*(BlueSidePoints(i,1)+YellowSidePoints(i,1));
-          middlePoints.push_back(middlePoint);
+          middlePath.push_back(middlePoint);
           //std::cout << "middle path: " << i << ": " <<middlePoint.x<< " " << middlePoint.y << std::endl; 
         }
       }
@@ -272,9 +269,9 @@ void Collector::ProcessFrameCFSD19(){
     	m_status = isMakingFrame;
     	
 			//display cones from perception
-			bool showResult = true;
-        if(showResult){
-        //ShowResult(tempBlueCones, tempYellowCones, tempOrangeCones, &middlePoints, PredictedBlues, PredictedYellows);
+
+      if(m_debug){
+        ShowResult(tempBlueCones, tempYellowCones, tempOrangeCones, PredictedBlues, PredictedYellows);
       }
       
         //Update current and past cone positions
@@ -315,11 +312,9 @@ void Collector::ProcessFrameCFSD19(){
     else // not enough cone for path planning
     {
       m_status = isMakingFrame;
-      bool debug = false;
-      if(debug)
+      if(m_debug)
         std::cout << "Not enough cones\n";
     }
-  }
 }
 
 /* Find cones from previous frame that match observed cones in current frame */
@@ -435,7 +430,7 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
     Eigen::ArrayXXf guessedConePos(1,2);
     guessedConePos << secondCone(0)+guessVector(0),secondCone(1)+guessVector(1);
     
-    Cone newGuessedCone(999, guessedConePos(0,0), guessedConePos(0,1), 999, 999, 999, 999, 5, (*ref)[i].m_frame, (*ref)[i].m_conesPerFrame);
+    Cone newGuessedCone(999, guessedConePos(0,0), guessedConePos(0,1),0);
     if((*ref)[i].m_color == 1)
        newGuessedCone.m_color = 2;
     else
@@ -446,7 +441,7 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
     {
       guessedConePos << firstCone(0)+guessVector(0),firstCone(1)+guessVector(1);
     
-      Cone newCone(999, guessedConePos(0,0), guessedConePos(0,1), 999, 999, 999, 999, 5, (*ref)[i].m_frame, (*ref)[i].m_conesPerFrame);
+      Cone newCone(999, guessedConePos(0,0), guessedConePos(0,1),0);
       if((*ref)[i].m_color == 1)
         newCone.m_color = 2;
       else
@@ -526,4 +521,188 @@ Eigen::ArrayXXf Collector::MakeSidePoints(std::vector<Cone> cones, uint32_t numb
   // The last point should be at the same place as the last cone.
   newSidePoints.row(numberOfPoints-1) = sidePoints.row(nCones-1); 
   return newSidePoints;
+}
+
+void Collector::ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, std::vector<Cone> orange, std::vector<Point2D> PredictedBlues, std::vector<Point2D> PredictedYellows){
+  int outWidth = 376;
+  int outHeight = 376;
+  int heightOffset = 50;
+  double resultResize = 15;
+  cv::Mat outImg = cv::Mat::zeros(outWidth,outHeight,CV_8UC4);
+  cv::Mat outImgOrange = cv::Mat::zeros(outWidth,outHeight,CV_8UC4);    
+  // Draw circles on output image
+  cv::Scalar coneColor(255,255,255); 
+
+  if(blue.size()){//blue cones
+    int colorIncrement = 0; //for distingusing sorted cone
+    for(uint32_t i=0; i < blue.size(); i++){
+      int xt = int(blue[i].m_x * float(resultResize) + outWidth/2);
+      int yt = int(blue[i].m_y * float(resultResize));
+      coneColor= cv::Scalar(255,0,colorIncrement);
+      cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 6, coneColor, -1);
+      colorIncrement = colorIncrement + 80;
+    }
+  }
+
+  if(yellow.size()){//yellow cones
+    int colorIncrement = 0; //for distingusing sorted cone
+    for(uint32_t i=0; i < yellow.size(); i++){
+      int xt = int(yellow[i].m_x * float(resultResize) + outWidth/2);
+      int yt = int(yellow[i].m_y * float(resultResize));
+      coneColor= cv::Scalar(0,255,255 + colorIncrement);
+      cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 6, coneColor, -1);
+      colorIncrement = colorIncrement + 80;
+    }
+  }
+
+  if(orange.size()){//orange cones
+    for(uint32_t i=0; i < orange.size(); i++){
+      int xt = int(orange[i].m_x * float(resultResize) + outWidth/2);
+      int yt = int(orange[i].m_y * float(resultResize));
+      coneColor= cv::Scalar(0,69,255);
+      cv::circle(outImgOrange, cv::Point(xt,-yt+outHeight-heightOffset), 6, coneColor, -1);
+    }
+  }
+
+  //Show middle path
+   if(middlePath.size()){
+    int colorIncrement = 0; //for distingusing sorted cone
+    for(uint32_t i=0; i < middlePath.size(); i++){
+      int xt = int(middlePath[i].x * float(resultResize) + outWidth/2);
+      int yt = int(middlePath[i].y * float(resultResize));
+      coneColor= cv::Scalar(100,255,colorIncrement);
+      cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 2, coneColor, -1);
+      colorIncrement = colorIncrement + 40;
+    }
+  }
+
+  //Show prediction
+  if(PredictedBlues.size()){//predicted blue cones
+    for(uint32_t i=0; i < PredictedBlues.size(); i++){
+      int xt = int(PredictedBlues[i].x * float(resultResize) + outWidth/2);
+      int yt = int(PredictedBlues[i].y * float(resultResize));
+      coneColor= cv::Scalar(236,236,0);
+      cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 4, coneColor, -1);
+    }
+  }
+  
+  if(PredictedYellows.size()){//predicted yellow cones
+    for(uint32_t i=0; i < PredictedYellows.size(); i++){
+      int xt = int(PredictedYellows[i].x * float(resultResize) + outWidth/2);
+      int yt = int(PredictedYellows[i].y * float(resultResize));
+      coneColor= cv::Scalar(0,221,133);
+      cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 4, coneColor, -1);
+    }
+  }
+  
+  // Show result image
+  cv::imshow("detectconelane-blue-yellow", outImg);
+  cv::imshow("detectconelane-orange", outImgOrange);
+  cv::waitKey(1);
+}
+
+void Collector::getObjectFrameStart(cluon::data::Envelope envelope){
+        opendlv::logic::perception::ObjectFrameStart msg = 
+          cluon::extractMessage<opendlv::logic::perception::ObjectFrameStart>(
+              std::move(envelope));
+
+        uint32_t objectFrameId = msg.objectFrameId();
+        {
+          std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+          uncompleteFrame = std::map<uint32_t, Cone>();
+          currentUncompleteFrameId = objectFrameId;
+          frameStart = envelope.sent();
+        }
+
+        if (m_verbose) {
+          std::cout << "Got frame START with id=" << objectFrameId
+            << std::endl;
+        }
+}
+
+void Collector::getObjectFrameEnd(cluon::data::Envelope envelope){
+  opendlv::logic::perception::ObjectFrameEnd msg = 
+          cluon::extractMessage<opendlv::logic::perception::ObjectFrameEnd>(
+              std::move(envelope));
+
+        uint32_t objectFrameId = msg.objectFrameId();
+        {
+          std::lock_guard<std::mutex> lock1(completeFrameMutex);
+          std::lock_guard<std::mutex> lock2(uncompleteFrameMutex);
+          completeFrame = uncompleteFrame;
+          
+          currentCompleteFrameId = currentUncompleteFrameId;
+          frameEnd = envelope.sent();
+        }
+
+        if (m_verbose) {
+          std::cout << "Got frame END with id=" << objectFrameId 
+            << std::endl;
+        }
+}
+
+void Collector::getObject(cluon::data::Envelope envelope){
+  opendlv::logic::perception::Object msg = 
+        cluon::extractMessage<opendlv::logic::perception::Object>(
+            std::move(envelope));
+
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        Cone newCone(objectId, 0, 0, 0);
+        uncompleteFrame[objectId] = newCone;
+      }
+      if (m_verbose) {
+        std::cout << "Got NEW OBJECT with id=" << objectId << std::endl;
+      }
+}
+
+void Collector::getObjectType(cluon::data::Envelope envelope){
+  opendlv::logic::perception::ObjectType msg = 
+        cluon::extractMessage<opendlv::logic::perception::ObjectType>(
+            std::move(envelope));
+
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        if (uncompleteFrame.count(objectId)) {
+          uncompleteFrame[objectId].m_color = msg.type();
+        }
+      }
+      if (m_verbose) {
+        std::cout << "Got OBJECT TYPE for object with id=" << objectId 
+          << " and type=" << msg.type() << std::endl;
+      }
+}
+
+void Collector::getObjectPosition(cluon::data::Envelope envelope){
+  opendlv::logic::perception::ObjectPosition msg = 
+        cluon::extractMessage<opendlv::logic::perception::ObjectPosition>(
+            std::move(envelope));
+
+      uint32_t objectId = msg.objectId();
+      {
+        std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        if (uncompleteFrame.count(objectId)) {
+          uncompleteFrame[objectId].m_x = msg.x();
+          uncompleteFrame[objectId].m_y = msg.y();
+        }
+      }
+      if (m_verbose) {
+        std::cout << "Got OBJECT POSITION for object with id=" << objectId 
+          << " and x=" << msg.x() << " y=" << msg.y() << std::endl;
+      }
+}
+
+void Collector::getEquilibrioception(cluon::data::Envelope envelope){
+  opendlv::logic::sensation::Equilibrioception msg = 
+        cluon::extractMessage<opendlv::logic::sensation::Equilibrioception>(
+            std::move(envelope));
+
+      float vx = msg.vx();
+      float yawRate = msg.yawRate();
+      if (m_verbose) {
+        std::cout << "Got EQUILIBRIOCEPTION vx=" << vx << " and yawRate=" 
+          << yawRate << std::endl;
+      }
 }

@@ -19,17 +19,18 @@
 
 #include "cone.hpp"
 
+Cone::Cone():
+  m_objectId(0)
+, m_x(0.0)
+, m_y(0.0)
+, m_color(0)
+{
+}
 
-Cone::Cone(uint32_t objectId, double x, double y, double z, float azimuthAngle, float zenithAngle, float distance, uint8_t color, uint32_t frame, uint32_t conesPerFrame):
+Cone::Cone(uint32_t objectId, double x, double y, uint32_t color):
   m_objectId(objectId)
 , m_x(x)
 , m_y(y)
-, m_z(z)
-, m_azimuthAngle(azimuthAngle)
-, m_zenithAngle(zenithAngle)
-, m_distance(distance)
 , m_color(color)
-, m_frame(frame)
-, m_conesPerFrame(conesPerFrame)
 {
 }

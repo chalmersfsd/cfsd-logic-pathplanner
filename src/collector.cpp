@@ -103,9 +103,17 @@ void Collector::GetCompleteFrameCFSD19(){
 /* Sort based on: nearest neighbour */
 std::vector<Cone> Collector::SortConesCFSD19(std::vector<Cone> cones){
   std::vector<Cone> SortedCones;
-  //Start from the car's position
-  double currentX = 0.0;
-  double currentY = 0.0;
+  //Choose starting position, if there's new cones added to the sides then start from those cones positon...
+  double currentX;
+  double currentY;
+  if(cones[0].m_objectId == 999){
+    currentX = cones[0].m_x;
+    currentY = cones[0].m_y;
+  }
+  //otherwise, start from the car's position
+  currentX = 0.0;
+  currentY = 0.0;
+  
   while(cones.size() > 1)
   {
     int closestIndex=0;
@@ -195,8 +203,8 @@ void Collector::ProcessFrameCFSD19(){
       displaceDistanceBlue << 0,0;
       displaceDistance << 0,0;
       
-      std::cout << "matchedBlues.size() " << matchedBlues.size() <<std::endl;
-      std::cout << "matchedYellows.size() " << matchedYellows.size() <<std::endl;
+      //std::cout << "matchedBlues.size() " << matchedBlues.size() <<std::endl;
+      //std::cout << "matchedYellows.size() " << matchedYellows.size() <<std::endl;
       
       if(matchedBlues.size() && matchedYellows.size()){
         displaceDistanceBlue = getDisplacementTranslation(matchedBlues, tempBlueCones);
@@ -223,29 +231,27 @@ void Collector::ProcessFrameCFSD19(){
       if(tempYellowCones.size() && m_pastYellow.size())
         PredictedYellows = PredictConePositions(tempYellowCones, &m_pastYellow, displaceDistance);
 			
+			//If there is only one cone in this frame, place two virtual cones on the car's side
+			if(tempBlueCones.size() <= 1 && tempYellowCones.size() <= 1)
+			{
+			  double trackWidth = 2.8;
+			  Cone virtualBlue(999, -trackWidth/2, 0, 1);
+			  Cone virtualYellow(999, trackWidth/2+0.01, 0.01, 2);
+			  //tempBlueCones.push_back(virtualBlue);
+			  //tempYellowCones.push_back(virtualYellow);
+			  tempBlueCones.insert(tempBlueCones.begin(), virtualBlue);
+			  tempYellowCones.insert(tempYellowCones.begin(), virtualYellow);
+			}
+			
       //Guess missing cones, choose the row with more cones as reference
       //First, Sort cones from closest to furthest, based on distance to car
-      bool BlueAsReference = false;
-      if(tempBlueCones.size() > tempYellowCones.size() && tempBlueCones.size() > 1)
-      {
+      if(tempBlueCones.size()>1)
         tempBlueCones = SortConesCFSD19(tempBlueCones);
-        BlueAsReference = true;
-      }
-      else
-      if(tempYellowCones.size() > tempBlueCones.size() && tempYellowCones.size() > 1)
-      {
+      if(tempYellowCones.size()>1)
         tempYellowCones = SortConesCFSD19(tempYellowCones);  
-      }
+      
       GuessMissingCones(&tempBlueCones, &tempYellowCones);
-      //Sort the other row
-      if(BlueAsReference && tempYellowCones.size() > 1){
-        tempYellowCones = SortConesCFSD19(tempYellowCones);  
-      }
-      else
-      if(!BlueAsReference && tempBlueCones.size() > 1){
-        tempBlueCones = SortConesCFSD19(tempBlueCones); 
-      }
-        
+      
       //Create virtual points on each cone row to make middle path
       uint32_t numberOfSidePoints = 6;
       Eigen::ArrayXXf BlueSidePoints;
@@ -266,6 +272,9 @@ void Collector::ProcessFrameCFSD19(){
           middlePath.push_back(middlePoint);
           //std::cout << "middle path: " << i << ": " <<middlePoint.x<< " " << middlePoint.y << std::endl; 
         }
+        //Set the first middle point to be the car's position
+        middlePath[0].x = 0;
+        middlePath[0].y = 0;
       }
 			
 			//Done processing, start making new frame
@@ -390,7 +399,7 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
   float guessDistance = 2.8f;
   std::vector<Cone>* ref; //reference row with more cones
   std::vector<Cone>* fewer; //modified row with fewer cones
-  if(blues->size() > yellows->size())
+  if(blues->size() >= yellows->size())
   {
     ref = blues;
     fewer = yellows;
@@ -422,7 +431,12 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
     Eigen::ArrayXXf secondCone(1,2);
     firstCone << (float)(*ref)[i].m_x, (float)(*ref)[i].m_y;
     secondCone << (float)(*ref)[i+1].m_x, (float)(*ref)[i+1].m_y;
-  
+    
+    if(m_verbose){
+      std::cout << "firstCone: " << firstCone(0,0) << ", " << firstCone(0,1) << std::endl;
+      std::cout << "secondCone: " << secondCone(0,0) << ", " << secondCone(0,1) << std::endl;
+    }
+    
     Eigen::ArrayXXf vector = secondCone-firstCone;
 
     Eigen::ArrayXXf normal(1,2);
@@ -431,9 +445,9 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
     Eigen::ArrayXXf guessVector = direction*guessDistance*normal;
     
     Eigen::ArrayXXf guessedConePos(1,2);
-    guessedConePos << secondCone(0)+guessVector(0),secondCone(1)+guessVector(1);
+    guessedConePos << secondCone(0,0)+guessVector(0,0),secondCone(0,1)+guessVector(0,1);
     
-    Cone newGuessedCone(999, guessedConePos(0,0), guessedConePos(0,1),0);
+    Cone newGuessedCone(111, guessedConePos(0,0), guessedConePos(0,1),0);
     if((*ref)[i].m_color == 1)
        newGuessedCone.m_color = 2;
     else
@@ -442,7 +456,7 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
     //Make projection for the first cone in the reference row as well
     if(i==0)
     {
-      guessedConePos << firstCone(0)+guessVector(0),firstCone(1)+guessVector(1);
+      guessedConePos << firstCone(0,0)+guessVector(0,0),firstCone(0,1)+guessVector(0,1);
     
       Cone newCone(999, guessedConePos(0,0), guessedConePos(0,1),0);
       if((*ref)[i].m_color == 1)
@@ -451,6 +465,8 @@ void Collector::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* y
         newCone.m_color = 1;
       (*fewer).push_back(newCone);
     }
+    if(m_verbose)
+      std::cout << "direction: " << direction << ", guessVector=(" << guessVector(0) << ", " <<guessVector(1) <<std::endl;
   }
 }
 

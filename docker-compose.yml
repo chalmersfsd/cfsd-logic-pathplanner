@@ -1,14 +1,9 @@
 version: '2'
 services:    # Must be present exactly once at the beginning of the docker-compose.yml file
     cfsd19-cognition-detectconelane:
-        image: cfsd19-cognition-detectconelane:v0.2
+        image: chalmersfsd/cfsd-logic-pathplanner:v0.2
         network_mode: "host"
         ipc: host
         environment:
           - DISPLAY=$DISPLAY
-        command: "cfsd-logic-pathplanner --cid=253 --debug --freq=10"
-        
-    cfsd19-logic-aimpoint:
-      image: lowitz/aimpoint:v0.0.2
-      network_mode: "host"
-      command: "cfsd-logic-aimpoint --cid=253 --previewTime=0.5 --verbose"
+        command: "cfsd-logic-pathplanner --cid=253"

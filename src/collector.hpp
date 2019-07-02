@@ -19,65 +19,25 @@
 
 #ifndef COLLECTOR_HPP
 #define COLLECTOR_HPP
+#include <mutex>
+#include <iterator>
+#include "pathplanner.hpp"
 
-#include <iostream>
-#include <cmath>
-#include <vector>
-#include <chrono>
-#include <Eigen/Core>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include "opendlv-standard-message-set.hpp"
-#include "cluon-complete.hpp"
-// CFSD19 modification
-#include <algorithm>
-#include "cone.hpp"
-#include <queue>
 #define PI 3.14159265
-enum Status { isMakingFrame, isProcessingFrame};
-struct Point2D {
-    double x;
-    double y;
-};
 
 class Collector{
   public:
-    Collector(cluon::OD4Session &od4, std::map<std::string, std::string>);
+    Collector(PathPlanner &planner, std::map<std::string, std::string>);
     ~Collector() = default;
 
     // CFSD19 modification
     void CollectConesCFSD19();
     void GetCompleteFrameCFSD19();
     void ProcessFrameCFSD19();
-    std::vector<Cone> SortConesCFSD19(std::vector<Cone>);
-    void GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* yellows);
-    
-    std::vector<Point2D> PredictConePositions(std::vector<Cone> observedCone, std::vector<Point2D> *pastCone, Eigen::ArrayXXf displaceVector);
-    std::vector<Point2D> MatchConePair(std::vector<Cone> observedCone, std::vector<Point2D> pastCone);
-    
-    Eigen::ArrayXXf MakeSidePoints(std::vector<Cone> cones, uint32_t numberOfPoints);
-
-    // CFSD19 modification
-    void ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, std::vector<Cone> orange, std::vector<Point2D> PredictedBlues, std::vector<Point2D> PredictedYellows);
     
   public:
-    cluon::OD4Session &m_od4;
-    //Containers for path planning
-    std::vector<Point2D> m_pastBlue;
-    std::vector<Point2D> m_pastYellow;
-    std::queue<Cone*> m_Cones;
+    PathPlanner &m_planner;
     std::queue<Cone> m_currentConeFrame;
-    std::vector<Point2D> middlePath;
-    
-    //Counters
-    uint32_t m_collectorFrameCounter;
-    uint32_t m_currentFrameCounter;
-    
-    //Flags and status
-    Status m_status;
-    bool m_isSkidpad;
-    bool m_verbose;
-    bool m_debug;
     
     //Variables for creating cone frames
     std::mutex uncompleteFrameMutex;
@@ -91,6 +51,9 @@ class Collector{
     cluon::data::TimeStamp frameStart;
     cluon::data::TimeStamp frameEnd;
     Point2D currentAim;
+    bool m_verbose;
+    bool m_debug;
+
     //Function for creating cone frames
     void getObjectFrameStart(cluon::data::Envelope envelope);
     void getObjectFrameEnd(cluon::data::Envelope envelope);

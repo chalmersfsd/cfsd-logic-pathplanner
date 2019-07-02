@@ -67,7 +67,7 @@ add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp
 include_directories(SYSTEM ${CMAKE_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/collector.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
+add_library(${PROJECT_NAME}-core STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/collector.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/pathplanner.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/cone.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
 ################################################################################
 # Threads are necessary for linking the resulting binaries as UDPReceiver is running in parallel.
 set(THREADS_PREFER_PTHREAD_FLAG ON)

@@ -18,13 +18,9 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
-#include <Eigen/Core>
-
-#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <memory>
-#include <mutex>
 #include <iterator>
 
 #include "collector.hpp"
@@ -43,54 +39,55 @@ int32_t main(int32_t argc, char **argv) {
 
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-    Collector collector(od4, commandlineArguments);
+    PathPlanner planner(od4, commandlineArguments);
+    Collector collector(planner, commandlineArguments);
     
-    auto onObjectFrameStart{[&planner = collector](
+    auto onObjectFrameStart{[&collector](
           cluon::data::Envelope &&envelope)
     {
       // TODO: for now assume senderStamp 0 for perception (add SLAM later)
       if (envelope.senderStamp() == 0) {
-        planner.getObjectFrameStart(envelope);
+        collector.getObjectFrameStart(envelope);
       }
     }};
 
-    auto onObjectFrameEnd{[&planner = collector](
+    auto onObjectFrameEnd{[&collector](
         cluon::data::Envelope &&envelope)
     {
       // TODO: for now assume senderStamp 0 for perception (add SLAM later)
       if (envelope.senderStamp() == 0) {
-        planner.getObjectFrameEnd(envelope);
+        collector.getObjectFrameEnd(envelope);
       }
     }};
 
-    auto onObject{[&planner = collector](
+    auto onObject{[&collector](
         cluon::data::Envelope &&envelope)
     {
-      planner.getObject(envelope);
+      collector.getObject(envelope);
     }};
 
-    auto onObjectType{[&planner = collector](
+    auto onObjectType{[&collector](
         cluon::data::Envelope &&envelope)
     {
-      planner.getObjectType(envelope);
+      collector.getObjectType(envelope);
     }};
 
-    auto onObjectPosition{[&planner = collector](
+    auto onObjectPosition{[&collector](
         cluon::data::Envelope &&envelope)
     {
-      planner.getObjectPosition(envelope);
+      collector.getObjectPosition(envelope);
     }};
 
-    auto onEquilibrioception{[&planner = collector](
+    auto onEquilibrioception{[&collector](
         cluon::data::Envelope &&envelope)
     {
-      planner.getEquilibrioception(envelope);
+      collector.getEquilibrioception(envelope);
     }};
     
-    auto onAimpoint{[&planner = collector](
+    auto onAimpoint{[&collector](
         cluon::data::Envelope &&envelope)
     {
-      planner.getAimpoint(envelope);
+      collector.getAimpoint(envelope);
     }};
     
     auto atFrequency{[&od4, &verbose, &collector, &localPathSenderId]() -> bool
@@ -110,10 +107,10 @@ int32_t main(int32_t argc, char **argv) {
           collector.ProcessFrameCFSD19();
         }
 
-        uint32_t length = collector.middlePath.size();
+        uint32_t length = collector.m_planner.middlePath.size();
         std::string data;
-        if(collector.middlePath.size()){
-        for (auto c : collector.middlePath) {
+        if(collector.m_planner.middlePath.size()){
+        for (auto c : collector.m_planner.middlePath) {
           float x = (float)c.x;
           float y = (float)c.y;
           float z = 0.0f;

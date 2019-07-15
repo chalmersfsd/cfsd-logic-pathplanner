@@ -108,25 +108,25 @@ void PathPlanner::ProcessFrameCFSD19(){
       middlePath.clear();
                
     if(m_currentConeFrame.size() > 0){
-
-      //std::cout << "Current frame " << m_currentConeFrame.front()->m_frame << " has: " << m_currentConeFrame.size() << " cones\n";
+      if(m_debug)
+      std::cout << "Current frame has: " << m_currentConeFrame.size() << " cones\n";
 			
       //Copy cones of different colors to their own containers for processing
       std::vector<Cone> tempYellowCones;
       std::vector<Cone> tempBlueCones;
       std::vector<Cone> tempOrangeCones;     
       while(m_currentConeFrame.size() >0){       
-        if(m_currentConeFrame.front().m_color == 1){ //blue
+        if(m_currentConeFrame.front().m_color == 0){ //blue
         Cone cone = m_currentConeFrame.front();
         tempBlueCones.push_back(cone);
       }
       else
-      if(m_currentConeFrame.front().m_color == 2){ //yellow
+      if(m_currentConeFrame.front().m_color == 1){ //yellow
         Cone cone = m_currentConeFrame.front();
         tempYellowCones.push_back(cone);
       }
       else
-      if(m_currentConeFrame.front().m_color == 4){ //orange
+      if(m_currentConeFrame.front().m_color == 2){ //orange
         Cone cone = m_currentConeFrame.front();
         tempOrangeCones.push_back(cone);
       }
@@ -193,6 +193,7 @@ void PathPlanner::ProcessFrameCFSD19(){
         PredictedYellows = PredictConePositions(tempYellowCones, &m_pastYellow, displaceDistance);
 			
 			//If there is only one cone in this frame, place two virtual cones on the car's side
+			
 			if(tempBlueCones.size() <= 1 && tempYellowCones.size() <= 1)
 			{
 			  double trackWidth = 2.8;
@@ -238,6 +239,7 @@ void PathPlanner::ProcessFrameCFSD19(){
           //std::cout << "middle path: " << i << ": " <<middlePoint.x<< " " << middlePoint.y << std::endl; 
         }
         //If the path is too far from the car, then add more path points from the car
+        /*
         double totalPathLength = 0;
         double averagePathLength = 0;
         for(uint32_t i=0;i<middlePath.size()-1;i++){
@@ -279,6 +281,8 @@ void PathPlanner::ProcessFrameCFSD19(){
             middlePath.insert(middlePath.begin(), additionalPoints.begin(), additionalPoints.end());
           }
         }
+        
+        */
       }
 			
 			//Done processing, start making new frame
@@ -453,7 +457,7 @@ void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>*
     
     Cone newGuessedCone(111, guessedConePos(0,0), guessedConePos(0,1),0);
     if((*ref)[i].m_color == 1)
-       newGuessedCone.m_color = 2;
+       newGuessedCone.m_color = 0;
     else
        newGuessedCone.m_color = 1;
     (*fewer).push_back(newGuessedCone);
@@ -464,7 +468,7 @@ void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>*
     
       Cone newCone(999, guessedConePos(0,0), guessedConePos(0,1),0);
       if((*ref)[i].m_color == 1)
-        newCone.m_color = 2;
+        newCone.m_color = 0;
       else
         newCone.m_color = 1;
       (*fewer).push_back(newCone);
@@ -600,6 +604,7 @@ void PathPlanner::ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, s
   }
 
   //Show prediction
+  /*
   if(PredictedBlues.size()){//predicted blue cones
     for(uint32_t i=0; i < PredictedBlues.size(); i++){
       int xt = int(PredictedBlues[i].x * float(resultResize) + outWidth/2);
@@ -617,7 +622,7 @@ void PathPlanner::ShowResult(std::vector<Cone> blue, std::vector<Cone> yellow, s
       cv::circle(outImg, cv::Point(xt,-yt+outHeight-heightOffset), 4, coneColor, -1);
     }
   }
-  
+  */
   //Show aimpoint from Aimpoint module
   //current aimpoint
   int xt = int(currentAim.x * float(resultResize) + outWidth/2);

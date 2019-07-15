@@ -101,11 +101,10 @@ void Collector::getObject(cluon::data::Envelope envelope){
       uint32_t objectId = msg.objectId();
       {
         std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
-        Cone newCone(objectId, 0, 0, 0);
-        uncompleteFrame[objectId] = newCone;
+
       }
       if (m_verbose) {
-        std::cout << "Got NEW OBJECT with id=" << objectId << std::endl;
+        
       }
 }
 
@@ -121,6 +120,10 @@ void Collector::getObjectType(cluon::data::Envelope envelope){
       uint32_t objectId = msg.objectId();
       {
         std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
+        Cone newCone(objectId, 0, 0, 0);
+        uncompleteFrame[objectId] = newCone;
+        std::cout << "Got NEW OBJECT with id=" << objectId << std::endl;
+        
         if (uncompleteFrame.count(objectId)) {
           uncompleteFrame[objectId].m_color = msg.type();
         }

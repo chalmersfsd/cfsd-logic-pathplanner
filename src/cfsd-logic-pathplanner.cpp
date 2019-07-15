@@ -100,8 +100,7 @@ int32_t main(int32_t argc, char **argv) {
             uint64_t frameDuration = cluon::time::toMicroseconds(collector.frameEnd)
               - cluon::time::toMicroseconds(collector.frameStart);
             std::cout << "Using frame to find path, frame duration="
-              << frameDuration << ", number of cones=" << collector.m_currentConeFrame.size()
-              << std::endl;
+              << frameDuration <<  std::endl;
           }
           
           collector.ProcessFrameCFSD19();

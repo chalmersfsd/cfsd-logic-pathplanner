@@ -115,7 +115,9 @@ void PathPlanner::ProcessFrameCFSD19(){
       std::vector<Cone> tempYellowCones;
       std::vector<Cone> tempBlueCones;
       std::vector<Cone> tempOrangeCones;     
-      while(m_currentConeFrame.size() >0){       
+      while(m_currentConeFrame.size() >0){
+      
+      std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;       
         if(m_currentConeFrame.front().m_color == 0){ //blue
         Cone cone = m_currentConeFrame.front();
         tempBlueCones.push_back(cone);
@@ -193,7 +195,7 @@ void PathPlanner::ProcessFrameCFSD19(){
         PredictedYellows = PredictConePositions(tempYellowCones, &m_pastYellow, displaceDistance);
 			
 			//If there is only one cone in this frame, place two virtual cones on the car's side
-			
+			/*
 			if(tempBlueCones.size() <= 1 && tempYellowCones.size() <= 1)
 			{
 			  double trackWidth = 2.8;
@@ -204,7 +206,7 @@ void PathPlanner::ProcessFrameCFSD19(){
 			  tempBlueCones.insert(tempBlueCones.begin(), virtualBlue);
 			  tempYellowCones.insert(tempYellowCones.begin(), virtualYellow);
 			}
-			
+			*/
       //Guess missing cones, choose the row with more cones as reference
       //First, Sort cones from closest to furthest, based on distance to car
       if(tempBlueCones.size()>1)

@@ -143,8 +143,16 @@ void Collector::getObjectPosition(cluon::data::Envelope envelope){
       {
         std::lock_guard<std::mutex> lock(uncompleteFrameMutex);
         if (uncompleteFrame.count(objectId)) {
-          uncompleteFrame[objectId].m_x = msg.x();
-          uncompleteFrame[objectId].m_y = msg.y();
+        // remap the coordiate so that the coordinate is as follow in path planner
+        // from perceptiom:
+        // x: positive upward vertically
+        // y: positive to left horizontally
+        
+        // In path planner
+        // x: postive to right horizontally
+        // y: positive upward vertically
+          uncompleteFrame[objectId].m_x = -msg.y();
+          uncompleteFrame[objectId].m_y = msg.x();
         }
       }
       if (m_verbose) {

@@ -119,8 +119,8 @@ void PathPlanner::ProcessFrameCFSD19(){
       
       std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;       
         if(m_currentConeFrame.front().m_color == 1){ //blue
-        Cone cone = m_currentConeFrame.front();
-        tempBlueCones.push_back(cone);
+      //  Cone cone = m_currentConeFrame.front();
+      //  tempBlueCones.push_back(cone);
       }
       else
       if(m_currentConeFrame.front().m_color == 0){ //yellow

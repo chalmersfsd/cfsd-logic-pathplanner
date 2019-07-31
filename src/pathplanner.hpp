@@ -75,7 +75,10 @@ class PathPlanner{
     bool m_isSkidpad;
     bool m_verbose;
     bool m_debug;
-
+    bool m_useOneConeLine;
+    bool m_useGuessCones;
+    float m_seperateDistance;
+    float m_guessDistance;
     Point2D currentAim;
     
     //Visualiztion of aimpoints fro debugging

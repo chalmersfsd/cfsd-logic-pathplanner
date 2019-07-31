@@ -59,6 +59,11 @@ PathPlanner::PathPlanner(cluon::OD4Session &od4, std::map<std::string, std::stri
 {
   m_verbose = static_cast<bool>(commandlineArguments.count("verbose") != 0);
   m_debug = static_cast<bool>(commandlineArguments.count("debug") != 0);
+  m_useOneConeLine = static_cast<bool>(commandlineArguments.count("m_useOneConeLine") != 0);
+  m_useGuessCones = static_cast<bool>(commandlineArguments.count("m_useGuessCones") != 0);
+  m_seperateDistance = static_cast<float>(std::stof(commandlineArguments["m_seperateDistance"]));
+  m_guessDistance = static_cast<float>(std::stof(commandlineArguments["m_guessDistance"]));
+
 }
 
 /* Sort based on: nearest neighbour */
@@ -119,8 +124,10 @@ void PathPlanner::ProcessFrameCFSD19(){
       
       std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;       
         if(m_currentConeFrame.front().m_color == 1){ //blue
-        Cone cone = m_currentConeFrame.front();
-        tempBlueCones.push_back(cone);
+          if(!m_useOneConeLine){
+            Cone cone = m_currentConeFrame.front();
+            tempBlueCones.push_back(cone);
+          }
       }
       else
       if(m_currentConeFrame.front().m_color == 0){ //yellow
@@ -214,12 +221,13 @@ void PathPlanner::ProcessFrameCFSD19(){
       if(tempYellowCones.size()>1)
         tempYellowCones = SortConesCFSD19(tempYellowCones);  
       
-      GuessMissingCones(&tempBlueCones, &tempYellowCones);
-      if(tempBlueCones.size()>1)
-        tempBlueCones = SortConesCFSD19(tempBlueCones);
-      if(tempYellowCones.size()>1)
-        tempYellowCones = SortConesCFSD19(tempYellowCones);  
-      
+      if(m_useGuessCones){
+        GuessMissingCones(&tempBlueCones, &tempYellowCones);
+        if(tempBlueCones.size()>1)
+          tempBlueCones = SortConesCFSD19(tempBlueCones);
+        if(tempYellowCones.size()>1)
+          tempYellowCones = SortConesCFSD19(tempYellowCones);  
+      }
       //Create virtual points on each cone row to make middle path
       uint32_t numberOfSidePoints = 6;
       Eigen::ArrayXXf BlueSidePoints;
@@ -406,9 +414,10 @@ std::vector<Point2D> PathPlanner::PredictConePositions(std::vector<Cone> observe
 
 void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>* yellows){
   //Choose the row with more cones as reference row
-  float guessDistance = 2.8f;
+  //float guessDistance = 3.0f;
   std::vector<Cone>* ref; //reference row with more cones
   std::vector<Cone>* fewer; //modified row with fewer cones
+  std::vector<Cone> guessTemp; //temporary guessed cones
   if(blues->size() >= yellows->size())
   {
     ref = blues;
@@ -452,7 +461,7 @@ void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>*
     Eigen::ArrayXXf normal(1,2);
     normal << -vector(1),vector(0);
     normal = normal/((normal.matrix()).norm());
-    Eigen::ArrayXXf guessVector = direction*guessDistance*normal;
+    Eigen::ArrayXXf guessVector = direction*m_guessDistance*normal;
     
     Eigen::ArrayXXf guessedConePos(1,2);
     guessedConePos << secondCone(0,0)+guessVector(0,0),secondCone(0,1)+guessVector(0,1);
@@ -462,7 +471,9 @@ void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>*
        newGuessedCone.m_color = 0;
     else
        newGuessedCone.m_color = 1;
-    (*fewer).push_back(newGuessedCone);
+    
+    //(*fewer).push_back(newGuessedCone);
+    guessTemp.push_back(newGuessedCone);
     //Make projection for the first cone in the reference row as well
     if(i==0)
     {
@@ -473,11 +484,38 @@ void PathPlanner::GuessMissingCones(std::vector<Cone>* blues, std::vector<Cone>*
         newCone.m_color = 0;
       else
         newCone.m_color = 1;
-      (*fewer).push_back(newCone);
+      //(*fewer).push_back(newCone);
+      guessTemp.push_back(newCone);
     }
+    
     if(m_verbose)
       std::cout << "direction: " << direction << ", guessVector=(" << guessVector(0) << ", " <<guessVector(1) <<std::endl;
   }
+  
+  //Check if the any guessed cone is close enough to any already existing cone, if yes then reject it
+  if(guessTemp.size() && (*fewer).size())
+  {
+    for(uint32_t i=0; i<guessTemp.size(); i++)
+    {
+      for(uint32_t j=0; j<(*fewer).size(); j++)
+      {
+        if(getNorm(guessTemp.at(i).m_x, guessTemp.at(i).m_y, (*fewer).at(j).m_x, (*fewer).at(j).m_y) > m_seperateDistance)
+          (*fewer).push_back(guessTemp.at(i));
+      }
+    }
+  }
+  else
+  if(guessTemp.size())
+  {
+    for(uint32_t i=0; i<guessTemp.size(); i++)
+    {
+      
+          (*fewer).push_back(guessTemp.at(i));
+   
+    }
+  }
+  
+    
 }
 
 Eigen::ArrayXXf PathPlanner::MakeSidePoints(std::vector<Cone> cones, uint32_t numberOfPoints){

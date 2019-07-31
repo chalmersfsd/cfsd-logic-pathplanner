@@ -1,9 +1,9 @@
 version: '2'
 services:    # Must be present exactly once at the beginning of the docker-compose.yml file
     cfsd19-logic-pathplanner:
-        image: namv1994/cfsd-logic-pathplanner:v0.4
+        image: namv1994/cfsd-logic-pathplanner:v0.6
         network_mode: "host"
         ipc: host
         environment:
           - DISPLAY=$DISPLAY
-        command: "cfsd-logic-pathplanner --cid=253 --debug --verbose --freq=30"
+        command: "cfsd-logic-pathplanner --cid=253 --debug --verbose --m_guessDistance=3.0 --m_seperateDistance=0.2 --freq=30" #m_useGuessCones m_useOneConeLine

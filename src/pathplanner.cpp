@@ -61,8 +61,13 @@ PathPlanner::PathPlanner(cluon::OD4Session &od4, std::map<std::string, std::stri
   m_debug = static_cast<bool>(commandlineArguments.count("debug") != 0);
   m_useOneConeLine = static_cast<bool>(commandlineArguments.count("m_useOneConeLine") != 0);
   m_useGuessCones = static_cast<bool>(commandlineArguments.count("m_useGuessCones") != 0);
+  m_useCloseCones = static_cast<bool>(commandlineArguments.count("m_useCloseCones") != 0);
+  m_useConesInFront = static_cast<bool>(commandlineArguments.count("m_useConesInFront") != 0);
+  
   m_seperateDistance = static_cast<float>(std::stof(commandlineArguments["m_seperateDistance"]));
   m_guessDistance = static_cast<float>(std::stof(commandlineArguments["m_guessDistance"]));
+  m_maxConeDistance = static_cast<float>(std::stof(commandlineArguments["m_maxConeDistance"]));
+  m_numberPathPoints = static_cast<uint16_t>(std::stoi(commandlineArguments["m_numberPathPoints"]));
 
 }
 
@@ -121,27 +126,54 @@ void PathPlanner::ProcessFrameCFSD19(){
       std::vector<Cone> tempBlueCones;
       std::vector<Cone> tempOrangeCones;     
       while(m_currentConeFrame.size() >0){
-      
-      std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;       
-        if(m_currentConeFrame.front().m_color == 1){ //blue
-          if(!m_useOneConeLine){
+        std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;
+        
+        if(m_useConesInFront){ // If only use detected cones in front of car ...
+          double x = m_currentConeFrame.front().m_x;
+          double y = m_currentConeFrame.front().m_y;
+          if(y < 0)
+            m_currentConeFrame.pop();
+        }
+        else
+        if(m_useCloseCones){ // If only use cones close to car ...
+          double x = m_currentConeFrame.front().m_x;
+          double y = m_currentConeFrame.front().m_y;
+          if(getNorm(x,y,0,0) > m_maxConeDistance)//assume car's camera is at (0,0)
+            m_currentConeFrame.pop();
+        }
+        else //... Otherwise, copy cones to their respective containers for later processing
+        {
+          if(m_currentConeFrame.front().m_color == 1){ //blue
             Cone cone = m_currentConeFrame.front();
             tempBlueCones.push_back(cone);
           }
+          else
+          if(m_currentConeFrame.front().m_color == 0){ //yellow
+            Cone cone = m_currentConeFrame.front();
+            tempYellowCones.push_back(cone);
+          }
+          else
+          if(m_currentConeFrame.front().m_color == 2){ //orange
+            Cone cone = m_currentConeFrame.front();
+            tempOrangeCones.push_back(cone);
+          }
+        //Done copying, delete pointers to free memory
+        m_currentConeFrame.pop();
+        }
       }
-      else
-      if(m_currentConeFrame.front().m_color == 0){ //yellow
-        Cone cone = m_currentConeFrame.front();
-        tempYellowCones.push_back(cone);
-      }
-      else
-      if(m_currentConeFrame.front().m_color == 2){ //orange
-        Cone cone = m_currentConeFrame.front();
-        tempOrangeCones.push_back(cone);
-      }
-      //Done copying, delete pointers to free memory
-      m_currentConeFrame.pop();
-      }
+			
+			//If choose to only use one cone lines
+			// Choose cone line with more cones
+			if(m_useOneConeLine){
+			  if(tempYellowCones.size() == tempBlueCones.size())
+			    tempBlueCones.clear(); //if both lines have same number of cones, then choose yellow
+			  else{
+			    if(tempBlueCones.size() > tempYellowCones.size())
+			      tempYellowCones.clear();
+			    else
+			      tempBlueCones.clear();
+			  }
+			}
 			
       if(m_debug){
         std::cout << "frame: blues: " << tempBlueCones.size() << " , yellow: " << tempYellowCones.size() << std::endl;
@@ -229,7 +261,7 @@ void PathPlanner::ProcessFrameCFSD19(){
           tempYellowCones = SortConesCFSD19(tempYellowCones);  
       }
       //Create virtual points on each cone row to make middle path
-      uint32_t numberOfSidePoints = 6;
+      uint32_t numberOfSidePoints = m_numberPathPoints;
       Eigen::ArrayXXf BlueSidePoints;
 			Eigen::ArrayXXf YellowSidePoints;
 			

@@ -77,8 +77,12 @@ class PathPlanner{
     bool m_debug;
     bool m_useOneConeLine;
     bool m_useGuessCones;
+    bool m_useCloseCones;
+    bool m_useConesInFront;
     float m_seperateDistance;
     float m_guessDistance;
+    float m_maxConeDistance;
+    uint16_t m_numberPathPoints;
     Point2D currentAim;
     
     //Visualiztion of aimpoints fro debugging

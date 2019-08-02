@@ -128,20 +128,21 @@ void PathPlanner::ProcessFrameCFSD19(){
       while(m_currentConeFrame.size() >0){
         std::cout << "m_currentConeFrame.front().m_color = " << m_currentConeFrame.front().m_color << std::endl;
         
-        if(m_useConesInFront){ // If only use detected cones in front of car ...
+        if(m_useConesInFront && m_currentConeFrame.size()){ // If only use detected cones in front of car ...
           double x = m_currentConeFrame.front().m_x;
           double y = m_currentConeFrame.front().m_y;
           if(y < 0)
             m_currentConeFrame.pop();
         }
-        else
-        if(m_useCloseCones){ // If only use cones close to car ...
+        
+        if(m_useCloseCones && m_currentConeFrame.size()){ // If only use cones close to car ...
           double x = m_currentConeFrame.front().m_x;
           double y = m_currentConeFrame.front().m_y;
           if(getNorm(x,y,0,0) > m_maxConeDistance)//assume car's camera is at (0,0)
             m_currentConeFrame.pop();
         }
-        else //... Otherwise, copy cones to their respective containers for later processing
+        
+        if(m_currentConeFrame.size()) //... Otherwise, copy cones to their respective containers for later processing
         {
           if(m_currentConeFrame.front().m_color == 1){ //blue
             Cone cone = m_currentConeFrame.front();

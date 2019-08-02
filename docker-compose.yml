@@ -6,5 +6,5 @@ services:    # Must be present exactly once at the beginning of the docker-compo
         ipc: host
         environment:
           - DISPLAY=$DISPLAY
-        command: "cfsd-logic-pathplanner --cid=253 --debug --verbose --m_guessDistance=3.0 --m_seperateDistance=0.2 --freq=30 --m_useGuessCones --m_useOneConeLine --m_numberPathPoints=12"
+        command: "cfsd-logic-pathplanner --cid=253 --verbose --m_guessDistance=5.0 --m_seperateDistance=1 --freq=30 --m_useGuessCones --m_useOneConeLine --m_numberPathPoints=12 --m_maxConeDistance=10 --m_useConesInFront"
     #--m_useCloseCones --m_useConesInFront --m_maxConeDistance --m_numberPathPoints --m_guessDistance --m_useGuessCones --m_useOneConeLine --m_seperateDistance

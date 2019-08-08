@@ -81,6 +81,7 @@ int32_t main(int32_t argc, char **argv) {
     uint32_t mode{2};  // 0: auto, 1: blue, 2: yellow, 3: parking
 
     std::pair<float, float> aimPoint{0.0f, 0.0f};
+    bool isParked{false};
     
     auto onObjectFrameStart{[&uncompleteFrameMutex, &uncompleteFrame,
       &frameTime, &currentUncompleteFrameId](
@@ -263,8 +264,9 @@ int32_t main(int32_t argc, char **argv) {
     }};
 
     auto atFrequency{[&od4, &completeFrameMutex, &completeFrame, &modeMutex,
-      &mode, &aimPoint, &dt, &carHalfWidth, &maxAimPointAzimuthAngleSpeed,
-      &maxAimPointZenithAngleSpeed, &speedMin, &speedMax, &steerMax, &verbose]() 
+      &mode, &aimPoint, &isParked, &dt, &carHalfWidth,
+      &maxAimPointAzimuthAngleSpeed, &maxAimPointZenithAngleSpeed, &speedMin, 
+      &speedMax, &steerMax, &verbose]() 
       -> bool
       {
         {
@@ -456,6 +458,25 @@ int32_t main(int32_t argc, char **argv) {
             default:
               break;
           } 
+          
+
+          if (mode == 3) {
+            float closeZenithAngle{75.0f};
+            bool foundOrangeToLeft{false};
+            bool foundOrangeToRight{false};
+              
+            for (auto &obj : completeFrame) {
+              if ((obj.type == 2 || obj.type == 3) 
+                  && obj.zenithAngle < closeZenithAngle) {
+                if (obj.azimuthAngle > 0.0f) {
+                  foundOrangeToLeft = true;
+                } else {
+                  foundOrangeToRight = true;
+                }
+              }
+            }
+            isParked = (foundOrangeToLeft && foundOrangeToRight);
+          }
 
           float aimPointAzimuthAngleSpeed{(aim.first - aimPoint.first) / dt};
           if (aimPointAzimuthAngleSpeed < -maxAimPointAzimuthAngleSpeed) {
@@ -488,6 +509,9 @@ int32_t main(int32_t argc, char **argv) {
           float const horizonZenithAngle{360.0f}; // TODO: make parameter (also used above)
           float groundSpeed{speedMin 
               + aimPoint.second / horizonZenithAngle * (speedMax - speedMin)};
+          if (isParked) {
+            groundSpeed = 0.0f;
+          }
           
           {
             opendlv::proxy::GroundSpeedRequest groundSpeedRequest;
@@ -573,6 +597,9 @@ int32_t main(int32_t argc, char **argv) {
             cv::putText(outImg, 
                 "Steering: " + std::to_string(groundSteeringAngleDeg), 
                 cv::Point(5, 60), 0, 0.5, cv::Scalar(255, 255, 255));
+            if (isParked) {
+              cv::putText(outImg, "Parked!", cv::Point(5, 80), 0, 0.5, cv::Scalar(0, 100, 255));
+            }
 
             cv::imshow("Path planner (local data only)", outImg);
             char key = cv::waitKey(1);

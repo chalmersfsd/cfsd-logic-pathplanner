@@ -43,7 +43,10 @@ int32_t main(int32_t argc, char **argv) {
   int32_t retCode{1};
   auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
   if ( (0 == commandlineArguments.count("cid")) ||
-      (0 == commandlineArguments.count("freq")) )  {
+      (0 == commandlineArguments.count("freq")) ||
+      (0 == commandlineArguments.count("speed-min")) ||
+      (0 == commandlineArguments.count("speed-max")) ||
+      (0 == commandlineArguments.count("steer-max")))  {
     std::cerr << argv[0] << " creates a path based on objec data input." 
       << std::endl;
     std::cerr << "Usage:   " << argv[0] << " --cid=<OD4 session> "
@@ -58,6 +61,10 @@ int32_t main(int32_t argc, char **argv) {
 
     int32_t const freq{std::stoi(commandlineArguments["freq"])};
     float const dt{1.0f / freq};
+    
+    float const speedMin{std::stof(commandlineArguments["speed-min"])};
+    float const speedMax{std::stof(commandlineArguments["speed-max"])};
+    float const steerMax{std::stof(commandlineArguments["steer-max"])};
 
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
@@ -257,7 +264,7 @@ int32_t main(int32_t argc, char **argv) {
 
     auto atFrequency{[&od4, &completeFrameMutex, &completeFrame, &modeMutex,
       &mode, &aimPoint, &dt, &carHalfWidth, &maxAimPointAzimuthAngleSpeed,
-      &maxAimPointZenithAngleSpeed, &verbose]() 
+      &maxAimPointZenithAngleSpeed, &speedMin, &speedMax, &steerMax, &verbose]() 
       -> bool
       {
         {
@@ -306,8 +313,8 @@ int32_t main(int32_t argc, char **argv) {
 
               for (float j = horizonZenithAngle; j > nearAngleLimit; 
                   j -= angleStep) {
-                for (float i = p0.first; i < p1.first; i += angleStep) {
-                  if (std::abs(bestValidAim.first) < std::abs(i)) {
+                for (float i = p1.first; i < p0.first; i += angleStep) {
+                  if (foundAim && std::abs(bestValidAim.first) < std::abs(i)) {
                     continue;
                   }
                   
@@ -467,6 +474,26 @@ int32_t main(int32_t argc, char **argv) {
             aimPointZenithAngleSpeed = maxAimPointZenithAngleSpeed;
           }
           aimPoint.second = aimPoint.second + aimPointZenithAngleSpeed * dt;
+           
+
+          float groundSteeringAngleDeg{
+            aimPoint.first / carHalfWidth * steerMax};
+
+          {
+            opendlv::proxy::GroundSteeringRequest groundSteeringRequest;
+            groundSteeringRequest.groundSteering(groundSteeringAngleDeg);
+            od4.send(groundSteeringRequest, cluon::time::now(), 2801);
+          }
+          
+          float const horizonZenithAngle{360.0f}; // TODO: make parameter (also used above)
+          float groundSpeed{speedMin 
+              + aimPoint.second / horizonZenithAngle * (speedMax - speedMin)};
+          
+          {
+            opendlv::proxy::GroundSpeedRequest groundSpeedRequest;
+            groundSpeedRequest.groundSpeed(groundSpeed);
+            od4.send(groundSpeedRequest, cluon::time::now(), 2201);
+          }
           
           if (verbose) {
             int32_t width{1280};
@@ -541,6 +568,11 @@ int32_t main(int32_t argc, char **argv) {
               : "";
             cv::putText(outImg, "Mode: " + modeText, cv::Point(5, 20), 0, 0.5, 
                 cv::Scalar(255, 255, 255));
+            cv::putText(outImg, "Speed: " + std::to_string(groundSpeed), 
+                cv::Point(5, 40), 0, 0.5, cv::Scalar(255, 255, 255));
+            cv::putText(outImg, 
+                "Steering: " + std::to_string(groundSteeringAngleDeg), 
+                cv::Point(5, 60), 0, 0.5, cv::Scalar(255, 255, 255));
 
             cv::imshow("Path planner (local data only)", outImg);
             char key = cv::waitKey(1);

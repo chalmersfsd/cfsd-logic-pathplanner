@@ -510,7 +510,7 @@ int32_t main(int32_t argc, char **argv) {
           float groundSpeed{speedMin 
               + aimPoint.second / horizonZenithAngle * (speedMax - speedMin)};
           if (isParked) {
-            groundSpeed = 0.0f;
+            groundSpeed = -1.0f;
           }
           
           {

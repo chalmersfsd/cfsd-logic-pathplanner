@@ -78,7 +78,7 @@ int32_t main(int32_t argc, char **argv) {
     std::vector<Object> completeFrame;
 
     std::mutex modeMutex;
-    uint32_t mode{2};  // 0: auto, 1: blue, 2: yellow, 3: parking
+    uint32_t mode{0};  // 0: auto, 1: blue, 2: yellow, 3: parking
 
     std::pair<float, float> aimPoint{0.0f, 0.0f};
     bool isParked{false};

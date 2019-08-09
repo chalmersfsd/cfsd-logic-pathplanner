@@ -460,8 +460,8 @@ int32_t main(int32_t argc, char **argv) {
           } 
           
 
-          if (mode == 3) {
-            float closeZenithAngle{75.0f};
+          if (!isParked && mode == 3) {
+            float closeZenithAngle{150.0f};
             bool foundOrangeToLeft{false};
             bool foundOrangeToRight{false};
               
@@ -470,8 +470,14 @@ int32_t main(int32_t argc, char **argv) {
                   && obj.zenithAngle < closeZenithAngle) {
                 if (obj.azimuthAngle > 0.0f) {
                   foundOrangeToLeft = true;
+                  if (verbose) {
+                    std::cout << "[Parking]: Found cone to the left." << std::endl;
+                  }
                 } else {
                   foundOrangeToRight = true;
+                  if (verbose) {
+                    std::cout << "[Parking]: Found cone to the right." << std::endl;
+                  }
                 }
               }
             }
@@ -543,7 +549,10 @@ int32_t main(int32_t argc, char **argv) {
                   color = cv::Scalar(255, 0, 0);
                   break;
                 case 2:
-                  color = cv::Scalar(0, 100, 255);
+                  color = cv::Scalar(0, 150, 255);
+                  break;
+                case 3:
+                  color = cv::Scalar(0, 0, 255);
                   break;
                 default:
                   break;

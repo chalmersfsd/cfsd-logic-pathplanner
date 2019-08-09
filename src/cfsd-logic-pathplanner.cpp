@@ -50,21 +50,31 @@ int32_t main(int32_t argc, char **argv) {
     std::cerr << argv[0] << " creates a path based on objec data input." 
       << std::endl;
     std::cerr << "Usage:   " << argv[0] << " --cid=<OD4 session> "
-      << "--freq=<Frequency> [--verbose]" << std::endl;
+      << "--freq=<Frequency> --speed-min=<Minimum speed, when looking close> "
+      << "--speed-max=<Maximum speed, when looking far> "
+      << "--steer-max=<Maximum steering angle (negative and positive), when "
+      << "looking to the sides> [--verbose]" << std::endl;
   } else {
     bool const verbose{commandlineArguments.count("verbose") != 0};
 
-    float const carHalfWidth{500.0f};
+    // TODO: Add as parameters
+    float const viewWidth{1280.0f};
+    float const viewHeight{720.0f};
+    float const egoWidthHalf{500.0f};
 
-    float const maxAimPointAzimuthAngleSpeed{500.0f};
-    float const maxAimPointZenithAngleSpeed{500.0f};
+    float const maxAimPointAzimuthAngleSpeed{400.0f};
+    float const maxAimPointZenithAngleSpeed{350.0f};
+    float const nearLimitZenithAngle{150.0f};
+    float const horizonZenithAngle{360.0f};
 
     int32_t const freq{std::stoi(commandlineArguments["freq"])};
-    float const dt{1.0f / freq};
     
     float const speedMin{std::stof(commandlineArguments["speed-min"])};
     float const speedMax{std::stof(commandlineArguments["speed-max"])};
     float const steerMax{std::stof(commandlineArguments["steer-max"])};
+
+    float const dt{1.0f / freq};
+    float const viewWidthHalf{viewWidth / 2.0f};
 
     cluon::OD4Session od4{
       static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
@@ -124,14 +134,6 @@ int32_t main(int32_t argc, char **argv) {
             completeFrame.push_back(obj.second);
           }
         }
-
-        /*
-        std::sort(completeFrame.begin(), completeFrame.end(),
-            [](Object const &a, Object const &b) -> bool
-            {
-              return a.zenithAngle > b.zenithAngle;
-            });
-            */
 
         if (verbose) {
           std::cout << "Frame collected (id=" << objectFrameId 
@@ -264,7 +266,8 @@ int32_t main(int32_t argc, char **argv) {
     }};
 
     auto atFrequency{[&od4, &completeFrameMutex, &completeFrame, &modeMutex,
-      &mode, &aimPoint, &isParked, &dt, &carHalfWidth,
+      &mode, &aimPoint, &isParked, &dt, &viewWidth, &viewWidthHalf, &viewHeight,
+      &nearLimitZenithAngle, &horizonZenithAngle, &egoWidthHalf,
       &maxAimPointAzimuthAngleSpeed, &maxAimPointZenithAngleSpeed, &speedMin, 
       &speedMax, &steerMax, &verbose]() 
       -> bool
@@ -302,18 +305,18 @@ int32_t main(int32_t argc, char **argv) {
               return false;
             }};
 
-          auto findAimForward{[&hasObjectInside](std::pair<float, float> p0, 
+          auto findAimForward{[&hasObjectInside, &nearLimitZenithAngle, 
+            &horizonZenithAngle](std::pair<float, float> p0, 
               std::pair<float, float> p1, std::vector<Object> const &objects) 
             -> std::pair<bool, std::pair<float, float>>
             {
-              float const angleStep{30.0};
-              float const horizonZenithAngle{360.0f};
-              float const nearAngleLimit{100.0f};
+              float const angleStep{
+                (horizonZenithAngle - nearLimitZenithAngle) / 10.0f};
 
               bool foundAim{false};
               std::pair<float, float> bestValidAim{0.0f, 0.0f};
 
-              for (float j = horizonZenithAngle; j > nearAngleLimit; 
+              for (float j = horizonZenithAngle; j > nearLimitZenithAngle; 
                   j -= angleStep) {
                 for (float i = p1.first; i < p0.first; i += angleStep) {
                   if (foundAim && std::abs(bestValidAim.first) < std::abs(i)) {
@@ -394,8 +397,8 @@ int32_t main(int32_t argc, char **argv) {
           std::lock_guard<std::mutex> lock1(completeFrameMutex);
           std::lock_guard<std::mutex> lock2(modeMutex);
 
-          std::pair<float, float> const p0{carHalfWidth, 0.0f};
-          std::pair<float, float> const p1{-carHalfWidth, 0.0f};
+          std::pair<float, float> const p0{egoWidthHalf, 0.0f};
+          std::pair<float, float> const p1{-egoWidthHalf, 0.0f};
 
           uint32_t subMode{0};
           bool foundAim{true};
@@ -407,13 +410,13 @@ int32_t main(int32_t argc, char **argv) {
                 auto res = findAimForward(p0, p1, completeFrame);
                 if (res.first) {
                   aim = res.second;
-                  if (aim.first < -carHalfWidth / 2.0f) {
+                  if (aim.first < -egoWidthHalf / 2.0f) {
                     res = findAimLeft(p0, p1, completeFrame);
                     if (res.first) {
                       subMode = 1;
                       aim = res.second;
                     }
-                  } else if (aim.first > carHalfWidth / 2.0f) {
+                  } else if (aim.first > egoWidthHalf / 2.0f) {
                     res = findAimRight(p0, p1, completeFrame);
                     if (res.first) {
                       subMode = 2;
@@ -461,23 +464,16 @@ int32_t main(int32_t argc, char **argv) {
           
 
           if (!isParked && mode == 3) {
-            float closeZenithAngle{150.0f};
             bool foundOrangeToLeft{false};
             bool foundOrangeToRight{false};
               
             for (auto &obj : completeFrame) {
               if ((obj.type == 2 || obj.type == 3) 
-                  && obj.zenithAngle < closeZenithAngle) {
+                  && obj.zenithAngle < nearLimitZenithAngle) {
                 if (obj.azimuthAngle > 0.0f) {
                   foundOrangeToLeft = true;
-                  if (verbose) {
-                    std::cout << "[Parking]: Found cone to the left." << std::endl;
-                  }
                 } else {
                   foundOrangeToRight = true;
-                  if (verbose) {
-                    std::cout << "[Parking]: Found cone to the right." << std::endl;
-                  }
                 }
               }
             }
@@ -504,7 +500,7 @@ int32_t main(int32_t argc, char **argv) {
            
 
           float groundSteeringAngleDeg{
-            aimPoint.first / carHalfWidth * steerMax};
+            aimPoint.first / viewWidthHalf * steerMax};
 
           {
             opendlv::proxy::GroundSteeringRequest groundSteeringRequest;
@@ -512,7 +508,6 @@ int32_t main(int32_t argc, char **argv) {
             od4.send(groundSteeringRequest, cluon::time::now(), 2801);
           }
           
-          float const horizonZenithAngle{360.0f}; // TODO: make parameter (also used above)
           float groundSpeed{speedMin 
               + aimPoint.second / horizonZenithAngle * (speedMax - speedMin)};
           if (isParked) {
@@ -526,18 +521,16 @@ int32_t main(int32_t argc, char **argv) {
           }
           
           if (verbose) {
-            int32_t width{1280};
-            int32_t height{720};
-            float halfWidth{width / 2.0f};
-            cv::Mat outImg(height, width, CV_8UC3, cv::Scalar(0,0,0));
+            cv::Mat outImg(static_cast<int32_t>(viewHeight),
+                static_cast<int32_t>(viewWidth), CV_8UC3, cv::Scalar(0,0,0));
             for (auto &obj : completeFrame) {
 
               int32_t w = static_cast<int32_t>(obj.w);
               int32_t h = static_cast<int32_t>(obj.h);
               int32_t i = static_cast<int32_t>(
-                  halfWidth - obj.azimuthAngle - obj.w / 2.0f);
+                  viewWidthHalf - obj.azimuthAngle - obj.w / 2.0f);
               int32_t j = static_cast<int32_t>(
-                  height - obj.zenithAngle - obj.h);
+                  viewHeight - obj.zenithAngle - obj.h);
 
 
               cv::Scalar color(255, 255, 255);
@@ -563,17 +556,17 @@ int32_t main(int32_t argc, char **argv) {
 
             if (foundAim) {
               int32_t p0i = static_cast<int32_t>(
-                  halfWidth - p0.first);
+                  viewWidthHalf - p0.first);
               int32_t p0j = static_cast<int32_t>(
-                  height - p0.second);
+                  viewHeight - p0.second);
               int32_t p1i = static_cast<int32_t>(
-                  halfWidth - p1.first);
+                  viewWidthHalf - p1.first);
               int32_t p1j = static_cast<int32_t>(
-                  height - p1.second);
+                  viewHeight - p1.second);
               int32_t p2i = static_cast<int32_t>(
-                  halfWidth - aim.first);
+                  viewWidthHalf - aim.first);
               int32_t p2j = static_cast<int32_t>(
-                  height - aim.second);
+                  viewHeight - aim.second);
               cv::line(outImg, cv::Point(p0i, p0j), cv::Point(p2i, p2j),
                   cv::Scalar(0, 0, 255));
               cv::line(outImg, cv::Point(p1i, p1j), cv::Point(p2i, p2j),
@@ -582,9 +575,9 @@ int32_t main(int32_t argc, char **argv) {
               
 
             int32_t api = static_cast<int32_t>(
-                halfWidth - aimPoint.first);
+                viewWidthHalf - aimPoint.first);
             int32_t apj = static_cast<int32_t>(
-                height - aimPoint.second);
+                viewHeight - aimPoint.second);
             cv::ellipse(outImg, cv::Point(api, apj), cv::Size(10, 10), 0.0, 0.0, 
                 360.0, cv::Scalar(100, 50, 255));
 

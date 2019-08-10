@@ -62,8 +62,8 @@ int32_t main(int32_t argc, char **argv) {
     float const viewHeight{720.0f};
     float const egoWidthHalf{500.0f};
 
-    float const maxAimPointAzimuthAngleSpeed{400.0f};
-    float const maxAimPointZenithAngleSpeed{350.0f};
+    float const maxAimPointAzimuthAngleSpeed{500.0f};
+    float const maxAimPointZenithAngleSpeed{500.0f};
     float const nearLimitZenithAngle{150.0f};
     float const horizonZenithAngle{360.0f};
 
@@ -304,10 +304,99 @@ int32_t main(int32_t argc, char **argv) {
               }
               return false;
             }};
+          
+          auto isCrossingBluePath{[](std::pair<float, float> p0, 
+              std::pair<float, float> p2, std::vector<Object> const &objects) 
+            -> bool
+            {
+              float const p0x{p0.first};
+              float const p0y{p0.second};
+              float const p2x{p2.first};
+              float const p2y{p2.second};
 
-          auto findAimForward{[&hasObjectInside, &nearLimitZenithAngle, 
-            &horizonZenithAngle](std::pair<float, float> p0, 
-              std::pair<float, float> p1, std::vector<Object> const &objects) 
+              for (auto &obj1 : objects) {
+                if (obj1.type != 1) {
+                  continue;
+                }
+
+                float const q0x{obj1.azimuthAngle};
+                float const q0y{obj1.zenithAngle};
+                float const q0w{obj1.w};
+                float const q0h{obj1.h};
+              
+                for (auto &obj2 : objects) {
+                  if (obj1.objectId == obj2.objectId && obj2.type != 1) {
+                    continue;
+                  }
+                
+                  float const q1x{obj2.azimuthAngle};
+                  float const q1y{obj2.zenithAngle};
+
+                  if (q1x > q0x) {
+                    if (q0y + 1.5f * q0h > q1y) {
+                        if (std::abs(q1x - q0x) < 15.0f * q0w) {
+                          if ((((q0x-p0x)*(p2y-p0y) - (q0y-p0y)*(p2x-p0x)) *
+                                ((q1x-p0x)*(p2y-p0y) - (q1y-p0y)*(p2x-p0x)) < 0.0f)
+                              && (((p0x-q0x)*(q1y-q0y) - (p0y-q0y)*(q1x-q0x)) *
+                                ((p2x-q0x)*(q1y-q0y) - (p2y-q0y)*(q1x-q0x)) < 0.0f)) {
+                            return true;
+                          }
+                        }
+                    }
+                  }
+                }
+              }
+              return false;
+            }};
+          
+          auto isCrossingYellowPath{[](std::pair<float, float> p0, 
+              std::pair<float, float> p2, std::vector<Object> const &objects) 
+            -> bool
+            {
+              float const p0x{p0.first};
+              float const p0y{p0.second};
+              float const p2x{p2.first};
+              float const p2y{p2.second};
+
+              for (auto &obj1 : objects) {
+                if (obj1.type != 0) {
+                  continue;
+                }
+
+                float const q0x{obj1.azimuthAngle};
+                float const q0y{obj1.zenithAngle};
+                float const q0w{obj1.w};
+                float const q0h{obj1.h};
+              
+                for (auto &obj2 : objects) {
+                  if (obj1.objectId == obj2.objectId && obj2.type != 1) {
+                    continue;
+                  }
+                
+                  float const q1x{obj2.azimuthAngle};
+                  float const q1y{obj2.zenithAngle};
+
+                  if (q1x < q0x) {
+                    if (q0y + 1.5f * q0h > q1y) {
+                        if (std::abs(q1x - q0x) < 15.0f * q0w) {
+                          if ((((q0x-p0x)*(p2y-p0y) - (q0y-p0y)*(p2x-p0x)) *
+                                ((q1x-p0x)*(p2y-p0y) - (q1y-p0y)*(p2x-p0x)) < 0.0f)
+                              && (((p0x-q0x)*(q1y-q0y) - (p0y-q0y)*(q1x-q0x)) *
+                                ((p2x-q0x)*(q1y-q0y) - (p2y-q0y)*(q1x-q0x)) < 0.0f)) {
+                            return true;
+                          }
+                        }
+                    }
+                  }
+                }
+              }
+              return false;
+            }};
+
+          auto findAimForward{[&hasObjectInside, &isCrossingBluePath,
+            &isCrossingYellowPath, &nearLimitZenithAngle, &horizonZenithAngle](
+                std::pair<float, float> p0, std::pair<float, float> p1,
+                std::vector<Object> const &objects) 
             -> std::pair<bool, std::pair<float, float>>
             {
               float const angleStep{
@@ -325,7 +414,9 @@ int32_t main(int32_t argc, char **argv) {
                   
                   std::pair<float, float> p2{i, j};
 
-                  if (!hasObjectInside(p0, p1, p2, objects)) {
+                  if (!hasObjectInside(p0, p1, p2, objects) 
+                      && !isCrossingBluePath(p0, p2, objects) 
+                      && !isCrossingYellowPath(p1, p2, objects)) {
                     foundAim = true;
                     bestValidAim = p2;
                   }
@@ -339,8 +430,9 @@ int32_t main(int32_t argc, char **argv) {
             }};
 
 
-          auto findAimLeft{[&hasObjectInside](std::pair<float, float> p0, 
-              std::pair<float, float> p1, std::vector<Object> const &objects) 
+          auto findAimLeft{[&hasObjectInside, &isCrossingBluePath](
+              std::pair<float, float> p0, std::pair<float, float> p1, 
+              std::vector<Object> const &objects) 
             -> std::pair<bool, std::pair<float, float>>
             {
               bool foundAim{false};
@@ -357,7 +449,8 @@ int32_t main(int32_t argc, char **argv) {
                 std::pair<float, float> p2{obj.azimuthAngle - 1.5f * obj.w,
                   obj.zenithAngle + obj.h};
 
-                if (!hasObjectInside(p0, p1, p2, objects)) {
+                if (!hasObjectInside(p0, p1, p2, objects) 
+                    && !isCrossingBluePath(p0, p2, objects)) {
                   foundAim = true;
                   bestValidAim = p2;
                 }
@@ -366,8 +459,9 @@ int32_t main(int32_t argc, char **argv) {
                   foundAim, bestValidAim);
             }};
           
-          auto findAimRight{[&hasObjectInside](std::pair<float, float> p0, 
-              std::pair<float, float> p1, std::vector<Object> const &objects) 
+          auto findAimRight{[&hasObjectInside, &isCrossingYellowPath](
+              std::pair<float, float> p0, std::pair<float, float> p1,
+              std::vector<Object> const &objects) 
             -> std::pair<bool, std::pair<float, float>>
             {
               bool foundAim{false};
@@ -384,7 +478,8 @@ int32_t main(int32_t argc, char **argv) {
                 std::pair<float, float> p2{obj.azimuthAngle + 1.5f * obj.w,
                   obj.zenithAngle + obj.h};
 
-                if (!hasObjectInside(p0, p1, p2, objects)) {
+                if (!hasObjectInside(p0, p1, p2, objects)
+                    && !isCrossingYellowPath(p1, p2, objects)) {
                   foundAim = true;
                   bestValidAim = p2;
                 }

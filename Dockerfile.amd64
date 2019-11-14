@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 FROM archlinux/base as builder
-RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3 eigen
+RUN pacman -Sy --noconfirm opencv cmake base-devel gtk3 eigen qt5
 RUN echo 'Server = http://ftp.acc.umu.se/mirror/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist 
 
 
@@ -27,7 +27,7 @@ RUN mkdir build && \
 
 
 FROM archlinux/base
-RUN pacman -Sy --noconfirm opencv gtk3
+RUN pacman -Sy --noconfirm opencv gtk3 qt5
 RUN echo 'Server = http://ftp.acc.umu.se/mirror/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist 
 
 WORKDIR /usr/bin
